@@ -2,16 +2,16 @@ import pool from '../db';
 import { PricingService } from './pricing.service'; // For distance helper if needed, but SQL is better here
 
 export const DispatchService = {
-    // Find nearest online courier with matching vehicle type
-    async findNearestCourier(pickupLat: number, pickupLng: number, vehicleType: string, radiusKm: number = 5) {
-        // using Haversine formula directly in SQL for ordering
-        // 6371 * acos(cos(radians(pickupLat)) * cos(radians(current_lat)) * cos(radians(current_lng) - radians(pickupLng)) + sin(radians(pickupLat)) * sin(radians(current_lat)))
+  // Find nearest online courier with matching vehicle type
+  async findNearestCourier(pickupLat: number, pickupLng: number, vehicleType: string, radiusKm: number = 5) {
+    // using Haversine formula directly in SQL for ordering
+    // 6371 * acos(cos(radians(pickupLat)) * cos(radians(current_lat)) * cos(radians(current_lng) - radians(pickupLng)) + sin(radians(pickupLat)) * sin(radians(current_lat)))
 
-        // Note: We check if they are verified and online.
-        // Also ideally check if they aren't busy. My schema only has is_online.
-        // I'll assume is_online=true means available for now.
+    // Note: We check if they are verified and online.
+    // Also ideally check if they aren't busy. My schema only has is_online.
+    // I'll assume is_online=true means available for now.
 
-        const query = `
+    const query = `
       SELECT id, full_name, current_lat, current_lng, vehicle_type,
       (
         6371 * acos(
@@ -34,11 +34,11 @@ export const DispatchService = {
       LIMIT 1;
     `;
 
-        // Note: HAVING clause needs specific GROUP BY or be standard SQL. 
-        // Postgres supports column aliases in HAVING/ORDER BY but simpler to use subquery or computed col in WHERE if not aggregated.
-        // Let's use a simpler WHERE with calculation or CTE.
+    // Note: HAVING clause needs specific GROUP BY or be standard SQL. 
+    // Postgres supports column aliases in HAVING/ORDER BY but simpler to use subquery or computed col in WHERE if not aggregated.
+    // Let's use a simpler WHERE with calculation or CTE.
 
-        const cleanQuery = `
+    const cleanQuery = `
       WITH nearby_couriers AS (
         SELECT c.id, c.user_id, c.current_lat, c.current_lng, c.vehicle_type, u.full_name,
         (
@@ -61,61 +61,66 @@ export const DispatchService = {
       LIMIT 1;
     `;
 
-        const result = await pool.query(cleanQuery, [pickupLat, pickupLng, vehicleType, radiusKm]);
-        return result.rows[0];
-    },
+    const result = await pool.query(cleanQuery, [pickupLat, pickupLng, vehicleType, radiusKm]);
+    return result.rows[0];
+  },
 
-    async assignOrder(orderId: string) {
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
+  async assignOrder(orderId: string) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-            // 1. Get Order
-            const orderRes = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
-            const order = orderRes.rows[0];
+      // 1. Get Order
+      const orderRes = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
+      const order = orderRes.rows[0];
 
-            if (!order) throw new Error('Order not found');
-            if (order.status !== 'created') throw new Error('Order is not in created state');
+      if (!order) throw new Error('Order not found');
+      if (order.status !== 'created') throw new Error('Order is not in created state');
 
-            // 2. Find Courier
-            // Need vehicle type from order -> logic: infer from pricing_details or store vehicle_type in orders? 
-            // Plan didn't specify vehicle_type in orders table explicitly, but CreateOrder used it.
-            // Let's assume we stored it in 'pricing_details' json or passed it.
-            // Actually, my CreateOrder implementation didn't save vehicle_type to a column! 
-            // I should have added vehicle_type column to orders.
-            // For now, I'll extract it from pricing_details if present, or update CreateOrder to save it.
-            // Let's fix CreateOrder schema/service later if needed. For now, check pricing_details.
+      // 2. Find Courier
+      // Need vehicle type from order -> logic: infer from pricing_details or store vehicle_type in orders? 
+      // Plan didn't specify vehicle_type in orders table explicitly, but CreateOrder used it.
+      // Let's assume we stored it in 'pricing_details' json or passed it.
+      // Actually, my CreateOrder implementation didn't save vehicle_type to a column! 
+      // I should have added vehicle_type column to orders.
+      // For now, I'll extract it from pricing_details if present, or update CreateOrder to save it.
+      // Let's fix CreateOrder schema/service later if needed. For now, check pricing_details.
 
-            let vehicleType = 'motorcycle'; // Default
-            if (order.pricing_details && order.pricing_details.vehicle_type) {
-                vehicleType = order.pricing_details.vehicle_type;
-            }
-            // Wait, CreateOrder Service save "pricingDetails". I will assume I put vehicleType there.
+      let vehicleType = 'motorcycle'; // Default
+      if (order.pricing_details && order.pricing_details.vehicle_type) {
+        vehicleType = order.pricing_details.vehicle_type;
+      }
+      // Wait, CreateOrder Service save "pricingDetails". I will assume I put vehicleType there.
 
-            const courier = await this.findNearestCourier(order.pickup_lat, order.pickup_lng, vehicleType);
+      const courier = await this.findNearestCourier(order.pickup_lat, order.pickup_lng, vehicleType);
 
-            if (!courier) {
-                throw new Error('No couriers available nearby');
-            }
+      if (!courier) {
+        throw new Error('No couriers available nearby');
+      }
 
-            // 3. Update Order
-            await client.query(
-                `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW() WHERE id = $2`,
-                [courier.id, orderId]
-            );
+      // 3. Update Order
+      await client.query(
+        `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW() WHERE id = $2`,
+        [courier.id, orderId]
+      );
 
-            // 4. Update Courier Status (Optional, keeping them 'online' but maybe add busy check later)
-            // For now, just logging
-            console.log(`Assigned courier ${courier.full_name} (${courier.id}) to order ${orderId}`);
+      // 4. Update Courier Status (Optional, keeping them 'online' but maybe add busy check later)
+      // For now, just logging
+      console.log(`Assigned courier ${courier.full_name} (${courier.id}) to order ${orderId}`);
 
-            await client.query('COMMIT');
-            return { success: true, courier };
+      await client.query('COMMIT');
 
-        } catch (e) {
-            await client.query('ROLLBACK');
-            throw e;
-        } finally {
-            client.release();
-        }
+      const { SocketService } = require('./socket.service');
+      SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { status: 'assigned', courier });
+      SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', courier });
+
+      return { success: true, courier };
+
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
+  }
 };

@@ -7,13 +7,18 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const http_1 = require("http");
+const socket_service_1 = require("./services/socket.service");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const pricing_routes_1 = __importDefault(require("./routes/pricing.routes"));
 const order_routes_1 = __importDefault(require("./routes/order.routes"));
 const payment_routes_1 = __importDefault(require("./routes/payment.routes"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+const httpServer = (0, http_1.createServer)(app); // Wrap express app
 const PORT = process.env.PORT || 3000;
+// Initialize Socket.io
+socket_service_1.SocketService.init(httpServer);
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
@@ -24,6 +29,8 @@ app.use('/api/payments', payment_routes_1.default);
 app.get('/', (req, res) => {
     res.json({ message: 'Lewa Backend is running', timestamp: new Date() });
 });
-app.listen(PORT, () => {
+// Use httpServer.listen instead of app.listen
+httpServer.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Socket.io server initialized`);
 });

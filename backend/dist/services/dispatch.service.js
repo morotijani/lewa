@@ -109,6 +109,9 @@ exports.DispatchService = {
                 // For now, just logging
                 console.log(`Assigned courier ${courier.full_name} (${courier.id}) to order ${orderId}`);
                 yield client.query('COMMIT');
+                const { SocketService } = require('./socket.service');
+                SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { status: 'assigned', courier });
+                SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', courier });
                 return { success: true, courier };
             }
             catch (e) {

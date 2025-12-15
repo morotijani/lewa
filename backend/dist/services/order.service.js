@@ -37,7 +37,13 @@ exports.OrderService = {
                 ];
                 const result = yield client.query(queryText, values);
                 yield client.query('COMMIT');
-                return result.rows[0];
+                const newOrder = result.rows[0];
+                // Emit event
+                // dynamically import to avoid circular dep if needed, or just import at top if safe
+                // For now, let's assume methods are static and safe
+                const { SocketService } = require('./socket.service'); // Using require to avoid potential circular dep issues during init
+                SocketService.emitToRoom(`user_${data.customerId}`, 'orderCreated', newOrder);
+                return newOrder;
             }
             catch (e) {
                 yield client.query('ROLLBACK');
