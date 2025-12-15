@@ -1,35 +1,33 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import LiveMap from './pages/LiveMap';
+import MerchantLayout from './components/MerchantLayout';
+import MerchantDashboard from './pages/merchant/MerchantDashboard';
+import MenuManager from './pages/merchant/MenuManager';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <BrowserRouter>
+      <Routes>
+        {/* Admin Routes */}
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="map" element={<LiveMap />} />
+          <Route path="orders" element={<div className="p-4">Orders Page (Coming Soon)</div>} />
+          <Route path="couriers" element={<div className="p-4">Couriers Page (Coming Soon)</div>} />
+          <Route path="settings" element={<div className="p-4">Settings Page (Coming Soon)</div>} />
+        </Route>
+
+        {/* Merchant Routes */}
+        <Route path="/merchant" element={<MerchantLayout />}>
+          <Route index element={<MerchantDashboard />} />
+          <Route path="menu" element={<MenuManager />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

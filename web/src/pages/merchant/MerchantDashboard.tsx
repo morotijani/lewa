@@ -1,0 +1,69 @@
+import React from 'react';
+
+const MerchantDashboard = () => {
+    // Mock Active Orders
+    const orders = [
+        { id: '101', items: ['Jollof Rice x2', 'Fried Plantain'], status: 'New', time: '2 mins ago', total: 'GHS 65.00' },
+        { id: '102', items: ['Chicken Burger', 'Coke'], status: 'Preparing', time: '12 mins ago', total: 'GHS 45.00' },
+        { id: '103', items: ['Large Pepperoni Pizza'], status: 'Ready', time: '25 mins ago', total: 'GHS 90.00' },
+    ];
+
+    return (
+        <div>
+            <div className="md:flex md:items-center md:justify-between mb-6">
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        Incoming Orders
+                    </h2>
+                </div>
+                <div className="mt-4 flex md:mt-0 md:ml-4">
+                    <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        Store Open
+                    </span>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {orders.map((order) => (
+                    <div key={order.id} className="bg-white overflow-hidden shadow rounded-lg border border-gray-100">
+                        <div className="px-4 py-5 sm:p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-lg leading-6 font-medium text-gray-900">Order #{order.id}</h3>
+                                    <p className="text-sm text-gray-500">{order.time}</p>
+                                </div>
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'New' ? 'bg-blue-100 text-blue-800' :
+                                        order.status === 'Preparing' ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-green-100 text-green-800'}`
+                                }>
+                                    {order.status}
+                                </span>
+                            </div>
+                            <div className="space-y-2 mb-4">
+                                {order.items.map((item, idx) => (
+                                    <div key={idx} className="text-sm text-gray-700 border-b border-gray-50 pb-1 last:border-0">{item}</div>
+                                ))}
+                            </div>
+                            <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
+                                <span className="font-bold text-gray-900">{order.total}</span>
+                                {order.status === 'New' ? (
+                                    <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none">
+                                        Accept
+                                    </button>
+                                ) : order.status === 'Preparing' ? (
+                                    <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none">
+                                        Mark Ready
+                                    </button>
+                                ) : (
+                                    <span className="text-xs text-gray-400 font-medium">Waiting for Courier</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+export default MerchantDashboard;
