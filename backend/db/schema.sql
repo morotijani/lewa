@@ -10,6 +10,7 @@ CREATE TABLE users (
     role VARCHAR(20) DEFAULT 'customer' CHECK (role IN ('customer', 'courier', 'merchant', 'admin')),
     is_verified BOOLEAN DEFAULT FALSE,
     profile_image_url TEXT,
+    password_hash TEXT, -- Added for basic auth flow
     kyc_status VARCHAR(20) DEFAULT 'pending', -- pending, verified, rejected
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
