@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 
 import authRoutes from './routes/auth.routes';
 import pricingRoutes from './routes/pricing.routes';
+import orderRoutes from './routes/order.routes';
+import paymentRoutes from './routes/payment.routes';
 
 dotenv.config();
 
@@ -17,6 +19,8 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/pricing', pricingRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Lewa Backend is running', timestamp: new Date() });
