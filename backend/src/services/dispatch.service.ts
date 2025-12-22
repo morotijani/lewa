@@ -53,7 +53,7 @@ export const DispatchService = {
         JOIN users u ON c.user_id = u.id
         WHERE c.vehicle_type = $3
         AND c.is_online = TRUE
-        AND u.is_verified = TRUE
+        -- AND u.is_verified = TRUE
       )
       SELECT * FROM nearby_couriers
       WHERE distance < $4
@@ -61,7 +61,9 @@ export const DispatchService = {
       LIMIT 1;
     `;
 
+    // console.log(`Searching for courier: Lat=${pickupLat}, Lng=${pickupLng}, Type=${vehicleType}, Radius=${radiusKm}`);
     const result = await pool.query(cleanQuery, [pickupLat, pickupLng, vehicleType, radiusKm]);
+    // console.log('Courier search result:', result.rows[0]);
     return result.rows[0];
   },
 

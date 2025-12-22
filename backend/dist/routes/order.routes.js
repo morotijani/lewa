@@ -47,6 +47,19 @@ router.get('/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         res.status(500).json({ error: err.message });
     }
 }));
+router.patch('/:id/status', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { status, userId } = req.body;
+        // userId should come from auth token in real app
+        if (!status)
+            return res.status(400).json({ error: 'Status is required' });
+        const order = yield order_service_1.OrderService.updateStatus(req.params.id, status, userId);
+        res.json(order);
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+}));
 router.get('/user/:userId', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const orders = yield order_service_1.OrderService.getUserOrders(req.params.userId);
@@ -54,6 +67,19 @@ router.get('/user/:userId', (req, res) => __awaiter(void 0, void 0, void 0, func
     }
     catch (err) {
         res.status(500).json({ error: err.message });
+    }
+}));
+router.post('/:id/decline', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { userId } = req.body;
+        // In real app, userId comes from auth token
+        if (!userId)
+            return res.status(400).json({ error: 'UserId is required' });
+        const result = yield order_service_1.OrderService.declineOrder(req.params.id, userId);
+        res.json(result);
+    }
+    catch (err) {
+        res.status(400).json({ error: err.message });
     }
 }));
 const dispatch_service_1 = require("../services/dispatch.service");

@@ -62,6 +62,11 @@ exports.PaymentService = {
                     // 3. Update Order
                     yield client.query(`UPDATE orders SET payment_status = 'paid', updated_at = NOW() WHERE id = $1`, [payment.order_id]);
                     yield client.query('COMMIT');
+                    const { SocketService } = require('./socket.service');
+                    SocketService.emitToRoom(`order_${payment.order_id}`, 'orderStatusUpdated', { status: 'paid' });
+                    // Also emit to user private room
+                    // We'd need user ID here, but let's assume client is listening to order room or we fetch order first
+                    // Simple fix: fetch order customer_id if needed, but order room should suffice for now
                     console.log(`Payment ${payment.id} processed successfully for Order ${payment.order_id}`);
                     return { success: true };
                 }

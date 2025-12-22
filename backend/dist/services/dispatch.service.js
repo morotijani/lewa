@@ -63,14 +63,16 @@ exports.DispatchService = {
         JOIN users u ON c.user_id = u.id
         WHERE c.vehicle_type = $3
         AND c.is_online = TRUE
-        AND u.is_verified = TRUE
+        -- AND u.is_verified = TRUE
       )
       SELECT * FROM nearby_couriers
       WHERE distance < $4
       ORDER BY distance ASC
       LIMIT 1;
     `;
+            console.log(`Searching for courier: Lat=${pickupLat}, Lng=${pickupLng}, Type=${vehicleType}, Radius=${radiusKm}`);
             const result = yield db_1.default.query(cleanQuery, [pickupLat, pickupLng, vehicleType, radiusKm]);
+            console.log('Courier search result:', result.rows[0]);
             return result.rows[0];
         });
     },
@@ -84,8 +86,10 @@ exports.DispatchService = {
                 const order = orderRes.rows[0];
                 if (!order)
                     throw new Error('Order not found');
-                if (order.status !== 'created')
-                    throw new Error('Order is not in created state');
+                // Allow 'created' (legacy) or 'accepted' (new flow)
+                if (!['created', 'accepted', 'confirmed'].includes(order.status)) {
+                    throw new Error(`Order is not in a dispatchable state (current: ${order.status})`);
+                }
                 // 2. Find Courier
                 // Need vehicle type from order -> logic: infer from pricing_details or store vehicle_type in orders? 
                 // Plan didn't specify vehicle_type in orders table explicitly, but CreateOrder used it.
@@ -104,14 +108,22 @@ exports.DispatchService = {
                     throw new Error('No couriers available nearby');
                 }
                 // 3. Update Order
-                yield client.query(`UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW() WHERE id = $2`, [courier.id, orderId]);
-                // 4. Update Courier Status (Optional, keeping them 'online' but maybe add busy check later)
-                // For now, just logging
+                const updateRes = yield client.query(`UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW() WHERE id = $2 RETURNING *`, [courier.id, orderId]);
+                const updatedOrder = updateRes.rows[0];
+                // 4. Logging
                 console.log(`Assigned courier ${courier.full_name} (${courier.id}) to order ${orderId}`);
                 yield client.query('COMMIT');
                 const { SocketService } = require('./socket.service');
-                SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { status: 'assigned', courier });
-                SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', courier });
+                // Emit full order object to match frontend expectation
+                SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
+                SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
+                // Notify Courier
+                // Assuming courier is connected and joined 'courier_{id}' or 'user_{id}'? 
+                // SocketService usually joins 'user_{userId}' typically. Let's start with that or check socket.service.ts
+                // DispatchService uses courier.id (which is the courier profile ID) or courier.user_id? 
+                // findNearestCourier returns c.id, c.user_id via query
+                // The socket usually authenticates with User ID. So 'user_{courier.user_id}' is safe.
+                SocketService.emitToRoom(`user_${courier.user_id}`, 'newOrder', { order, status: 'assigned' });
                 return { success: true, courier };
             }
             catch (e) {

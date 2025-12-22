@@ -35,7 +35,13 @@ exports.AuthService = {
                 const result = yield db_1.default.query(`INSERT INTO users (phone_number, email, full_name, role, password_hash) 
          VALUES ($1, $2, $3, $4, $5) 
          RETURNING id, full_name, role, phone_number`, [phone, email, fullName, role, hashedPassword]);
-                return result.rows[0];
+                const user = result.rows[0];
+                const token = jsonwebtoken_1.default.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+                return {
+                    user,
+                    token,
+                    hasCourierProfile: false // New user definitely has no profile
+                };
             }
             catch (err) {
                 if (err.code === '23505') { // Unique violation
@@ -55,9 +61,16 @@ exports.AuthService = {
             if (!validPassword)
                 throw new Error('Invalid credentials');
             const token = jsonwebtoken_1.default.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+            // Check for courier profile
+            let hasCourierProfile = false;
+            if (user.role === 'courier') {
+                const courierRes = yield db_1.default.query('SELECT id FROM couriers WHERE user_id = $1', [user.id]);
+                hasCourierProfile = courierRes.rows.length > 0;
+            }
             return {
-                user: { id: user.id, name: user.full_name, role: user.role },
-                token
+                user: { id: user.id, name: user.full_name, role: user.role, phone_number: user.phone_number },
+                token,
+                hasCourierProfile
             };
         });
     }

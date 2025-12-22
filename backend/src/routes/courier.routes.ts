@@ -30,6 +30,16 @@ router.get('/profile/:userId', async (req, res) => {
     }
 });
 
+router.patch('/profile/:userId', async (req, res) => {
+    try {
+        const { vehicleType, licensePlate } = req.body;
+        const courier = await CourierService.updateProfile(req.params.userId, vehicleType, licensePlate);
+        res.json(courier);
+    } catch (err: any) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 router.post('/create', async (req, res) => {
     try {
         const { userId, vehicleType, licensePlate } = req.body;

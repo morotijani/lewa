@@ -7,7 +7,7 @@ import * as Location from 'expo-location';
 import { courierApi, orderApi } from '../services/api';
 import SocketService from '../services/socket';
 
-const HomeScreen = ({ route }: any) => {
+const HomeScreen = ({ route, navigation }: any) => {
     const user = route.params?.user || {};
     const [isCourier, setIsCourier] = useState(user.role === 'courier');
     const [isOnline, setIsOnline] = useState(false);
@@ -82,11 +82,35 @@ const HomeScreen = ({ route }: any) => {
     }, [!isCourier, activeOrder]);
 
     // Socket Connection
+    const [socketConnected, setSocketConnected] = useState(false);
+
     React.useEffect(() => {
         if (user.id) {
             SocketService.connect(user.id);
+
+            // Listen for connection changes
+            const onConnect = () => {
+                console.log('Socket Connected');
+                setSocketConnected(true);
+            };
+            const onDisconnect = () => {
+                console.log('Socket Disconnected');
+                setSocketConnected(false);
+            };
+
+            // We need access to the socket instance to listen to standard events
+            // Ideally SocketService exposes an onConnect/onDisconnect, or we listen to the socket directly
+            // Current SocketService wrapper hides the socket but exposes .on() which proxies to socket.on()
+            // So we can listen to 'connect' and 'disconnect' directly through the wrapper!
+            SocketService.on('connect', onConnect);
+            SocketService.on('disconnect', onDisconnect);
+
+            return () => {
+                SocketService.off('connect', onConnect);
+                SocketService.off('disconnect', onDisconnect);
+                SocketService.disconnect();
+            };
         }
-        return () => SocketService.disconnect();
     }, [user.id]);
 
     // Courier: Listen for New Orders
@@ -94,13 +118,19 @@ const HomeScreen = ({ route }: any) => {
         if (isCourier) {
             const handleNewOrder = (data: any) => {
                 // Prevent duplicate alerts if already viewing this order
-                if (activeOrder && activeOrder.id === data.order.id) return;
+                if (activeOrder && activeOrder.id === data.order.id) {
+                    return;
+                }
 
                 Alert.alert(
                     'New Order!',
                     `Pickup: ${data.order.pickup_address}\nDropoff: ${data.order.dropoff_address}\nTotal: GHS ${data.order.total_amount_ghs}`,
                     [
-                        { text: 'Decline', style: 'cancel' },
+                        {
+                            text: 'Decline',
+                            style: 'cancel',
+                            onPress: () => handleDeclineOrder(data.order.id)
+                        },
                         {
                             text: 'Accept',
                             onPress: () => {
@@ -119,6 +149,17 @@ const HomeScreen = ({ route }: any) => {
             };
         }
     }, [isCourier, activeOrder]);
+
+    const handleDeclineOrder = async (orderId: string) => {
+        try {
+            await orderApi.decline(orderId, user.id);
+            setActiveOrder(null);
+            Alert.alert('Declined', 'You have declined this order.');
+        } catch (error: any) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to decline order');
+        }
+    };
 
     const handleAcceptOrder = async (orderId: string) => {
         try {
@@ -296,8 +337,18 @@ const HomeScreen = ({ route }: any) => {
 
             <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
                 <View className="bg-white/90 mx-4 mt-2 p-3 rounded-xl shadow-lg flex-row justify-between items-center">
-                    <Text className="font-bold text-gray-700">Mode: {isCourier ? 'Courier' : 'Customer'}</Text>
-                    {/* Role switching disabled in UI to rely on real Auth role */}
+                    <View className="flex-row items-center">
+                        <View className={`w-3 h-3 rounded-full mr-2 ${socketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <Text className="font-bold text-gray-700">Mode: {isCourier ? 'Courier' : 'Customer'}</Text>
+                    </View>
+                    {isCourier && (
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('CourierProfile', { user })}
+                            className="bg-slate-200 px-3 py-1 rounded-full"
+                        >
+                            <Text className="text-xs font-bold text-slate-700">Profile</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {isCourier ? (

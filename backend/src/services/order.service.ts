@@ -106,5 +106,51 @@ export const OrderService = {
     async getUserOrders(userId: string) {
         const result = await pool.query('SELECT * FROM orders WHERE customer_id = $1 ORDER BY created_at DESC', [userId]);
         return result.rows;
+    },
+
+    async declineOrder(orderId: string, courierId: string) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Verify order is assigned to this courier
+            // Note: We need to check if courierId matches the order's courier_id
+            // Ideally we get the courier primary key (id) from the user_id (courierId arg might be user_id)
+            // Let's assume courierId passed here is the USER ID, so we look up the courier profile first.
+
+            const courierRes = await client.query('SELECT id FROM couriers WHERE user_id = $1', [courierId]);
+            if (courierRes.rows.length === 0) throw new Error('Courier profile not found');
+            const courierProfileId = courierRes.rows[0].id;
+
+            const orderRes = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
+            const order = orderRes.rows[0];
+
+            if (!order) throw new Error('Order not found');
+            if (order.courier_id !== courierProfileId) {
+                throw new Error('Order is not assigned to this courier');
+            }
+
+            // Unassign
+            const updateRes = await client.query(
+                `UPDATE orders SET courier_id = NULL, status = 'accepted', updated_at = NOW() WHERE id = $1 RETURNING *`,
+                [orderId]
+            );
+            const updatedOrder = updateRes.rows[0];
+
+            await client.query('COMMIT');
+
+            // Notify that order is back in pool?
+            // Actually, if status is 'accepted', the merchant dashboard sees it.
+            // We might want to trigger a "redispatch" or just let it sit until another mechanism picks it up.
+            // For MVP, simplistic release is fine.
+
+            return updatedOrder;
+
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
     }
 };

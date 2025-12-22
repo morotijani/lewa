@@ -47,5 +47,20 @@ export const CourierService = {
       RETURNING *
     `, [userId, vehicleType, licensePlate]);
         return result.rows[0];
+    },
+
+    // Update courier profile
+    async updateProfile(userId: string, vehicleType: string, licensePlate: string) {
+        const result = await pool.query(`
+      UPDATE couriers 
+      SET vehicle_type = $2, license_plate = $3
+      WHERE user_id = $1
+      RETURNING *
+    `, [userId, vehicleType, licensePlate]);
+
+        if (result.rowCount === 0) {
+            throw new Error('Courier profile not found');
+        }
+        return result.rows[0];
     }
 };

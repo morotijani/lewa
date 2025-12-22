@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthScreen from '../screens/AuthScreen';
 import HomeScreen from '../screens/HomeScreen';
 import CourierSetupScreen from '../screens/CourierSetupScreen';
+import CourierProfileScreen from '../screens/CourierProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -54,6 +55,7 @@ const RootNavigator = () => {
                     initialParams={user ? { user: user } : undefined}
                 />
                 <Stack.Screen name="CourierSetup" component={CourierSetupScreen} />
+                <Stack.Screen name="CourierProfile" component={CourierProfileScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

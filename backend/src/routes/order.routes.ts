@@ -57,6 +57,19 @@ router.get('/user/:userId', async (req, res) => {
     }
 });
 
+router.post('/:id/decline', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        // In real app, userId comes from auth token
+        if (!userId) return res.status(400).json({ error: 'UserId is required' });
+
+        const result = await OrderService.declineOrder(req.params.id, userId);
+        res.json(result);
+    } catch (err: any) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 import { DispatchService } from '../services/dispatch.service';
 
 // ... existing imports

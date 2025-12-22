@@ -1,9 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 import { Platform } from 'react-native';
 
-const URL = Platform.OS === 'android'
-    ? 'http://192.168.0.122:3000'
-    : 'http://192.168.0.122:3000';
+const URL = 'http://192.168.0.122:3000';
+
+// If using physical device, replace with your LAN IP, e.g.:
+// const URL = 'http://192.168.0.122:3000';
 
 class SocketService {
     private socket: Socket | null = null;
