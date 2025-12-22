@@ -5,6 +5,7 @@ import { authApi } from '../services/api';
 
 const AuthScreen = ({ navigation }: any) => {
     const [isLogin, setIsLogin] = useState(true);
+    const [isCourierRole, setIsCourierRole] = useState(false); // New state for role selection
     const [loading, setLoading] = useState(false);
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
@@ -22,14 +23,27 @@ const AuthScreen = ({ navigation }: any) => {
             if (isLogin) {
                 response = await authApi.login({ phone, password });
             } else {
-                response = await authApi.register({ phone, password, fullName });
+                response = await authApi.register({
+                    phone,
+                    password,
+                    fullName,
+                    role: isCourierRole ? 'courier' : 'customer'
+                });
             }
 
             Alert.alert('Success', `Welcome ${isLogin ? '' : 'to Lewa'}!`);
 
-            const user = response.data.user || response.data; // Handle structure diff if any
-            // Navigate to Home with user data
-            navigation.replace('Home', { user });
+            const userData = response.data.user || response.data;
+            const hasProfile = response.data.hasCourierProfile;
+
+            // Logic: If Courier AND No Profile -> Go to Setup
+            // Otherwise -> Home
+            if (userData.role === 'courier' && !hasProfile) {
+                navigation.replace('CourierSetup', { user: userData });
+            } else {
+                navigation.replace('Home', { user: userData });
+            }
+
         } catch (error: any) {
             console.error('Auth Error:', error);
             const message = error.response?.data?.error || error.message || 'Authentication failed';
@@ -46,12 +60,30 @@ const AuthScreen = ({ navigation }: any) => {
                 <Text className="text-slate-500 mb-8">{isLogin ? 'Welcome back! Login to continue.' : 'Create an account to get started.'}</Text>
 
                 {!isLogin && (
-                    <TextInput
-                        placeholder="Full Name"
-                        className="w-full bg-slate-100 p-4 rounded-xl mb-4 text-slate-800"
-                        value={fullName}
-                        onChangeText={setFullName}
-                    />
+                    <>
+                        <TextInput
+                            placeholder="Full Name"
+                            className="w-full bg-slate-100 p-4 rounded-xl mb-4 text-slate-800"
+                            value={fullName}
+                            onChangeText={setFullName}
+                        />
+
+                        <View className="flex-row items-center mb-4">
+                            <Text className="text-slate-600 mr-2">Sign up as:</Text>
+                            <TouchableOpacity
+                                onPress={() => setIsCourierRole(false)}
+                                className={`px-4 py-2 rounded-l-lg border border-slate-200 ${!isCourierRole ? 'bg-orange-100 border-orange-500' : 'bg-white'}`}
+                            >
+                                <Text className={!isCourierRole ? 'text-orange-700 font-bold' : 'text-slate-500'}>Customer</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => setIsCourierRole(true)}
+                                className={`px-4 py-2 rounded-r-lg border border-slate-200 ${isCourierRole ? 'bg-orange-100 border-orange-500' : 'bg-white'}`}
+                            >
+                                <Text className={isCourierRole ? 'text-orange-700 font-bold' : 'text-slate-500'}>Courier</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </>
                 )}
 
                 <TextInput

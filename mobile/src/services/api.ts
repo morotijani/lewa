@@ -20,8 +20,8 @@ export const authApi = {
 };
 
 export const courierApi = {
-    updateStatus: (data: { userId: string; isOnline: boolean; lat?: number; lng?: number }) =>
-        api.post('/couriers/status', data),
+    updateStatus: (data: { userId: string, isOnline: boolean, lat: number, lng: number }) => api.post('/couriers/status', data),
+    createProfile: (data: { userId: string, vehicleType: string, licensePlate: string }) => api.post('/couriers/create', data),
     getProfile: (userId: string) => api.get(`/couriers/profile/${userId}`),
 };
 

@@ -40,7 +40,7 @@ const HomeScreen = ({ route }: any) => {
                     {
                         accuracy: Location.Accuracy.High,
                         timeInterval: 5000,
-                        distanceInterval: 10
+                        distanceInterval: 1 // Update heavily for testing
                     },
                     (loc) => {
                         console.log('Emitting location:', loc.coords);
@@ -137,8 +137,19 @@ const HomeScreen = ({ route }: any) => {
     const toggleOnline = async () => {
         try {
             const newStatus = !isOnline;
-            const lat = 5.6508;
-            const lng = -0.1870;
+            // Use real location or current userLocation state
+            let currentLoc = userLocation;
+            if (!currentLoc) {
+                try {
+                    currentLoc = await Location.getCurrentPositionAsync({});
+                    setUserLocation(currentLoc);
+                } catch (e) {
+                    console.log('Error getting location for online toggle:', e);
+                }
+            }
+
+            const lat = currentLoc?.coords.latitude || 5.6508;
+            const lng = currentLoc?.coords.longitude || -0.1870;
 
             if (isCourier) {
                 await courierApi.updateStatus({

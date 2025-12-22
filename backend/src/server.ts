@@ -10,6 +10,7 @@ import pricingRoutes from './routes/pricing.routes';
 import orderRoutes from './routes/order.routes';
 import paymentRoutes from './routes/payment.routes';
 import courierRoutes from './routes/courier.routes';
+import adminRoutes from './routes/admin.routes';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/pricing', pricingRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/couriers', courierRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Lewa Backend is running', timestamp: new Date() });

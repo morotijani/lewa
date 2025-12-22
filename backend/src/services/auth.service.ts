@@ -25,7 +25,14 @@ export const AuthService = {
          RETURNING id, full_name, role, phone_number`,
                 [phone, email, fullName, role, hashedPassword]
             );
-            return result.rows[0];
+            const user = result.rows[0];
+            const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+
+            return {
+                user,
+                token,
+                hasCourierProfile: false // New user definitely has no profile
+            };
         } catch (err: any) {
             if (err.code === '23505') { // Unique violation
                 throw new Error('User already exists');
@@ -45,9 +52,17 @@ export const AuthService = {
 
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
 
+        // Check for courier profile
+        let hasCourierProfile = false;
+        if (user.role === 'courier') {
+            const courierRes = await pool.query('SELECT id FROM couriers WHERE user_id = $1', [user.id]);
+            hasCourierProfile = courierRes.rows.length > 0;
+        }
+
         return {
-            user: { id: user.id, name: user.full_name, role: user.role },
-            token
+            user: { id: user.id, name: user.full_name, role: user.role, phone_number: user.phone_number },
+            token,
+            hasCourierProfile
         };
     }
 };
