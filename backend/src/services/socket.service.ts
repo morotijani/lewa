@@ -23,6 +23,14 @@ export class SocketService {
 
                 console.log(`Location update from ${data.courierId}:`, data);
                 socket.broadcast.emit('courierLocationUpdate', data);
+                console.log(`Location update from ${data.courierId}:`, data);
+                socket.broadcast.emit('courierLocationUpdate', data);
+            });
+
+            // Identify user and join their room
+            socket.on('identify', (userId: string) => {
+                socket.join(`user_${userId}`);
+                console.log(`Socket ${socket.id} identified as user_${userId}`);
             });
 
             // Handle joining order room for updates

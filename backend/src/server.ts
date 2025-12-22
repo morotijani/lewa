@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.routes';
 import pricingRoutes from './routes/pricing.routes';
 import orderRoutes from './routes/order.routes';
 import paymentRoutes from './routes/payment.routes';
+import courierRoutes from './routes/courier.routes';
 
 dotenv.config();
 
@@ -27,13 +28,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/couriers', courierRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Lewa Backend is running', timestamp: new Date() });
 });
 
 // Use httpServer.listen instead of app.listen
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Socket.io server initialized`);
 });

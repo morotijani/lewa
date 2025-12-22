@@ -26,8 +26,10 @@ const AuthScreen = ({ navigation }: any) => {
             }
 
             Alert.alert('Success', `Welcome ${isLogin ? '' : 'to Lewa'}!`);
-            // Navigate to Home
-            navigation.replace('Home');
+
+            const user = response.data.user || response.data; // Handle structure diff if any
+            // Navigate to Home with user data
+            navigation.replace('Home', { user });
         } catch (error: any) {
             console.error('Auth Error:', error);
             const message = error.response?.data?.error || error.message || 'Authentication failed';

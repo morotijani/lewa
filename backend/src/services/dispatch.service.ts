@@ -114,6 +114,14 @@ export const DispatchService = {
       SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { status: 'assigned', courier });
       SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', courier });
 
+      // Notify Courier
+      // Assuming courier is connected and joined 'courier_{id}' or 'user_{id}'? 
+      // SocketService usually joins 'user_{userId}' typically. Let's start with that or check socket.service.ts
+      // DispatchService uses courier.id (which is the courier profile ID) or courier.user_id? 
+      // findNearestCourier returns c.id, c.user_id via query
+      // The socket usually authenticates with User ID. So 'user_{courier.user_id}' is safe.
+      SocketService.emitToRoom(`user_${courier.user_id}`, 'newOrder', { order, status: 'assigned' });
+
       return { success: true, courier };
 
     } catch (e) {

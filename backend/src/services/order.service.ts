@@ -43,6 +43,12 @@ export const OrderService = {
             const { SocketService } = require('./socket.service'); // Using require to avoid potential circular dep issues during init
             SocketService.emitToRoom(`user_${data.customerId}`, 'orderCreated', newOrder);
 
+            // Trigger Dispatch asynchronously
+            // We don't await this so the ID is returned to user immediately
+            // But in a real app better to await or use queue
+            const { DispatchService } = require('./dispatch.service');
+            DispatchService.assignOrder(newOrder.id).catch((err: any) => console.error('Auto-dispatch failed:', err));
+
             return newOrder;
 
         } catch (e) {
@@ -56,6 +62,39 @@ export const OrderService = {
     async getOrderById(orderId: string) {
         const result = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
         return result.rows[0];
+    },
+
+    async updateStatus(orderId: string, status: string, userId: string) {
+        // Validate transition? (e.g. created -> assigned -> accepted -> picked_up -> delivered)
+        // For MVP, just update.
+        // userId used for validation (is this the courier assigned?)
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            const result = await client.query(
+                'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+                [status, orderId]
+            );
+
+            if (result.rowCount === 0) throw new Error('Order not found');
+            const updatedOrder = result.rows[0];
+
+            await client.query('COMMIT');
+
+            // Emit update
+            const { SocketService } = require('./socket.service');
+            SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
+            SocketService.emitToRoom(`user_${updatedOrder.customer_id}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
+
+            return updatedOrder;
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
     },
 
     async getUserOrders(userId: string) {
