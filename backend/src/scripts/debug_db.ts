@@ -1,17 +1,19 @@
 import pool from '../db';
 
-async function listData() {
+const checkTables = async () => {
     try {
-        const users = await pool.query('SELECT id, full_name, role, phone_number FROM users');
-        console.log('USERS:', users.rows);
-
-        const couriers = await pool.query('SELECT id, user_id, vehicle_type, is_online FROM couriers');
-        console.log('COURIERS:', couriers.rows);
+        console.log('Connecting...');
+        const res = await pool.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        `);
+        console.log('Tables:', res.rows.map(r => r.table_name));
     } catch (err) {
-        console.error(err);
+        console.error('DB Error:', err);
     } finally {
         pool.end();
     }
-}
+};
 
-listData();
+checkTables();

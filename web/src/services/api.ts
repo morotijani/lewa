@@ -17,4 +17,12 @@ export const adminApi = {
     getOrders: () => api.get('/admin/orders'),
 };
 
+export const merchantApi = {
+    getMenu: (merchantId: string) => api.get(`/merchant/${merchantId}/menu`),
+    addMenuItem: (merchantId: string, data: any) => api.post(`/merchant/${merchantId}/menu`, data),
+    updateMenuItem: (itemId: string, data: any) => api.patch(`/merchant/menu/${itemId}`, data),
+    deleteMenuItem: (itemId: string) => api.delete(`/merchant/menu/${itemId}`),
+    getOrders: (merchantId: string) => api.get(`/merchant/${merchantId}/orders`),
+};
+
 export default api;

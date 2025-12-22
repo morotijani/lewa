@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { merchantApi } from '../../services/api';
+
+const DEMO_MERCHANT_ID = 'd187e383-7dad-44d3-8b7f-30bc221977d4';
 
 const MerchantDashboard = () => {
-    // Mock Active Orders
-    const orders = [
-        { id: '101', items: ['Jollof Rice x2', 'Fried Plantain'], status: 'New', time: '2 mins ago', total: 'GHS 65.00' },
-        { id: '102', items: ['Chicken Burger', 'Coke'], status: 'Preparing', time: '12 mins ago', total: 'GHS 45.00' },
-        { id: '103', items: ['Large Pepperoni Pizza'], status: 'Ready', time: '25 mins ago', total: 'GHS 90.00' },
-    ];
+    const [orders, setOrders] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            try {
+                const res = await merchantApi.getOrders(DEMO_MERCHANT_ID);
+                setOrders(res.data);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchOrders();
+        const interval = setInterval(fetchOrders, 10000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <div>
@@ -29,34 +41,24 @@ const MerchantDashboard = () => {
                         <div className="px-4 py-5 sm:p-6">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <h3 className="text-lg leading-6 font-medium text-gray-900">Order #{order.id}</h3>
-                                    <p className="text-sm text-gray-500">{order.time}</p>
+                                    <h3 className="text-lg leading-6 font-medium text-gray-900">Order #{order.id.slice(0, 8)}</h3>
+                                    <p className="text-sm text-gray-500">{new Date(order.created_at).toLocaleTimeString()}</p>
                                 </div>
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'New' ? 'bg-blue-100 text-blue-800' :
-                                        order.status === 'Preparing' ? 'bg-yellow-100 text-yellow-800' :
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'created' ? 'bg-blue-100 text-blue-800' :
+                                        order.status === 'assigned' ? 'bg-yellow-100 text-yellow-800' :
                                             'bg-green-100 text-green-800'}`
                                 }>
                                     {order.status}
                                 </span>
                             </div>
                             <div className="space-y-2 mb-4">
-                                {order.items.map((item, idx) => (
-                                    <div key={idx} className="text-sm text-gray-700 border-b border-gray-50 pb-1 last:border-0">{item}</div>
-                                ))}
+                                {/* Items logic placehoder */}
+                                <div className="text-sm text-gray-700">Customer: {order.customer_name}</div>
+                                <div className="text-sm text-gray-500 italic">{order.notes || 'No notes'}</div>
                             </div>
                             <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-                                <span className="font-bold text-gray-900">{order.total}</span>
-                                {order.status === 'New' ? (
-                                    <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none">
-                                        Accept
-                                    </button>
-                                ) : order.status === 'Preparing' ? (
-                                    <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none">
-                                        Mark Ready
-                                    </button>
-                                ) : (
-                                    <span className="text-xs text-gray-400 font-medium">Waiting for Courier</span>
-                                )}
+                                <span className="font-bold text-gray-900">GHS {order.total_amount_ghs}</span>
+                                <span className="text-xs text-gray-400">Waiting for Courier</span>
                             </div>
                         </div>
                     </div>
