@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi } from '../services/api';
 
 const AuthScreen = ({ navigation }: any) => {
@@ -34,7 +35,14 @@ const AuthScreen = ({ navigation }: any) => {
             Alert.alert('Success', `Welcome ${isLogin ? '' : 'to Lewa'}!`);
 
             const userData = response.data.user || response.data;
+            const token = response.data.token;
             const hasProfile = response.data.hasCourierProfile;
+
+            // Save session
+            if (token) {
+                await AsyncStorage.setItem('userToken', token);
+                await AsyncStorage.setItem('userData', JSON.stringify(userData));
+            }
 
             // Logic: If Courier AND No Profile -> Go to Setup
             // Otherwise -> Home

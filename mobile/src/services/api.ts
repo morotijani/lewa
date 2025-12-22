@@ -7,12 +7,28 @@ const BASE_URL = Platform.OS === 'android'
     ? 'http://192.168.0.122:3000/api'
     : 'http://192.168.0.122:3000/api';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const api = axios.create({
     baseURL: BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
 });
+
+// Add a request interceptor to inject the token
+api.interceptors.request.use(
+    async (config) => {
+        const token = await AsyncStorage.getItem('userToken');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
 export const authApi = {
     login: (data: any) => api.post('/auth/login', data),

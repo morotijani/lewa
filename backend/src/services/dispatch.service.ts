@@ -75,7 +75,10 @@ export const DispatchService = {
       const order = orderRes.rows[0];
 
       if (!order) throw new Error('Order not found');
-      if (order.status !== 'created') throw new Error('Order is not in created state');
+      // Allow 'created' (legacy) or 'accepted' (new flow)
+      if (!['created', 'accepted', 'confirmed'].includes(order.status)) {
+        throw new Error(`Order is not in a dispatchable state (current: ${order.status})`);
+      }
 
       // 2. Find Courier
       // Need vehicle type from order -> logic: infer from pricing_details or store vehicle_type in orders? 

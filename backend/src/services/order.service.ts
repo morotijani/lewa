@@ -44,10 +44,9 @@ export const OrderService = {
             SocketService.emitToRoom(`user_${data.customerId}`, 'orderCreated', newOrder);
 
             // Trigger Dispatch asynchronously
-            // We don't await this so the ID is returned to user immediately
-            // But in a real app better to await or use queue
-            const { DispatchService } = require('./dispatch.service');
-            DispatchService.assignOrder(newOrder.id).catch((err: any) => console.error('Auto-dispatch failed:', err));
+            // REMOVED: Auto-dispatch is now triggered when Merchant accepts the order (status: 'confirmed')
+            // const { DispatchService } = require('./dispatch.service');
+            // DispatchService.assignOrder(newOrder.id).catch((err: any) => console.error('Auto-dispatch failed:', err));
 
             return newOrder;
 
@@ -87,6 +86,13 @@ export const OrderService = {
             const { SocketService } = require('./socket.service');
             SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
             SocketService.emitToRoom(`user_${updatedOrder.customer_id}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
+
+            // TRIGGER DISPATCH IF MERCHANT ACCEPTED
+            if (status === 'accepted') {
+                const { DispatchService } = require('./dispatch.service');
+                // We don't await this to keep response fast, but in prod consider queue
+                DispatchService.assignOrder(orderId).catch((err: any) => console.error('Dispatch failed:', err));
+            }
 
             return updatedOrder;
         } catch (e) {

@@ -6,6 +6,17 @@ const DEMO_MERCHANT_ID = 'd187e383-7dad-44d3-8b7f-30bc221977d4';
 const MerchantDashboard = () => {
     const [orders, setOrders] = useState<any[]>([]);
 
+    const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+        try {
+            await merchantApi.updateOrderStatus(orderId, newStatus);
+            // Optimistic update or refetch
+            setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+        } catch (err) {
+            console.error('Failed to update status', err);
+            alert('Failed to update order status');
+        }
+    };
+
     useEffect(() => {
         const fetchOrders = async () => {
             try {
@@ -45,8 +56,8 @@ const MerchantDashboard = () => {
                                     <p className="text-sm text-gray-500">{new Date(order.created_at).toLocaleTimeString()}</p>
                                 </div>
                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'created' ? 'bg-blue-100 text-blue-800' :
-                                        order.status === 'assigned' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-green-100 text-green-800'}`
+                                    order.status === 'assigned' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-green-100 text-green-800'}`
                                 }>
                                     {order.status}
                                 </span>
@@ -58,7 +69,24 @@ const MerchantDashboard = () => {
                             </div>
                             <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
                                 <span className="font-bold text-gray-900">GHS {order.total_amount_ghs}</span>
-                                <span className="text-xs text-gray-400">Waiting for Courier</span>
+                                <div className="space-x-2">
+                                    {order.status === 'created' && (
+                                        <button
+                                            onClick={() => handleStatusUpdate(order.id, 'accepted')}
+                                            className="px-3 py-1 text-xs font-semibold text-white bg-blue-600 rounded hover:bg-blue-700"
+                                        >
+                                            Accept
+                                        </button>
+                                    )}
+                                    {['accepted', 'confirmed', 'assigned'].includes(order.status) && (
+                                        <button
+                                            onClick={() => handleStatusUpdate(order.id, 'ready_for_pickup')}
+                                            className="px-3 py-1 text-xs font-semibold text-white bg-green-600 rounded hover:bg-green-700"
+                                        >
+                                            Mark Ready
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

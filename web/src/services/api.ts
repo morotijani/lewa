@@ -23,6 +23,7 @@ export const merchantApi = {
     updateMenuItem: (itemId: string, data: any) => api.patch(`/merchant/menu/${itemId}`, data),
     deleteMenuItem: (itemId: string) => api.delete(`/merchant/menu/${itemId}`),
     getOrders: (merchantId: string) => api.get(`/merchant/${merchantId}/orders`),
+    updateOrderStatus: (orderId: string, status: string) => api.patch(`/orders/${orderId}/status`, { status, userId: 'merchant-demo' }),
 };
 
 export default api;

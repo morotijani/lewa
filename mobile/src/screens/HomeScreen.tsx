@@ -65,13 +65,19 @@ const HomeScreen = ({ route }: any) => {
     // Customer: Listen for Courier Location
     React.useEffect(() => {
         if (!isCourier && activeOrder) {
-            SocketService.on('courierLocationUpdate', (data) => {
+            const handleLocationUpdate = (data: any) => {
                 console.log('Courier moved:', data);
                 setCourierLocation({
                     latitude: data.lat,
                     longitude: data.lng,
                 });
-            });
+            };
+
+            SocketService.on('courierLocationUpdate', handleLocationUpdate);
+
+            return () => {
+                SocketService.off('courierLocationUpdate', handleLocationUpdate);
+            };
         }
     }, [!isCourier, activeOrder]);
 
@@ -86,7 +92,10 @@ const HomeScreen = ({ route }: any) => {
     // Courier: Listen for New Orders
     React.useEffect(() => {
         if (isCourier) {
-            SocketService.on('newOrder', (data) => {
+            const handleNewOrder = (data: any) => {
+                // Prevent duplicate alerts if already viewing this order
+                if (activeOrder && activeOrder.id === data.order.id) return;
+
                 Alert.alert(
                     'New Order!',
                     `Pickup: ${data.order.pickup_address}\nDropoff: ${data.order.dropoff_address}\nTotal: GHS ${data.order.total_amount_ghs}`,
@@ -95,19 +104,25 @@ const HomeScreen = ({ route }: any) => {
                         {
                             text: 'Accept',
                             onPress: () => {
-                                setActiveOrder({ ...data.order, status: 'accepted' }); // Optimistic
+                                setActiveOrder({ ...data.order, status: 'confirmed' }); // Optimistic
                                 handleAcceptOrder(data.order.id);
                             }
                         }
                     ]
                 );
-            });
+            };
+
+            SocketService.on('newOrder', handleNewOrder);
+
+            return () => {
+                SocketService.off('newOrder', handleNewOrder);
+            };
         }
-    }, [isCourier]);
+    }, [isCourier, activeOrder]);
 
     const handleAcceptOrder = async (orderId: string) => {
         try {
-            await orderApi.updateStatus(orderId, 'accepted', user.id);
+            await orderApi.updateStatus(orderId, 'confirmed', user.id);
             // activeOrder set in alert for speed, but good to refresh here if needed
         } catch (error: any) {
             console.error(error);
@@ -171,7 +186,7 @@ const HomeScreen = ({ route }: any) => {
     // Customer: Listen for Status Updates
     React.useEffect(() => {
         if (!isCourier && activeOrder) {
-            SocketService.on('orderStatusUpdated', (data) => {
+            const handleStatusUpdate = (data: any) => {
                 if (data.orderId === activeOrder.id) {
                     setActiveOrder(data.order);
                     if (data.status === 'delivered') {
@@ -179,7 +194,13 @@ const HomeScreen = ({ route }: any) => {
                         setActiveOrder(null);
                     }
                 }
-            });
+            };
+
+            SocketService.on('orderStatusUpdated', handleStatusUpdate);
+
+            return () => {
+                SocketService.off('orderStatusUpdated', handleStatusUpdate);
+            };
         }
     }, [!isCourier, activeOrder]);
 
@@ -257,7 +278,7 @@ const HomeScreen = ({ route }: any) => {
             >
 
                 {/* Show Courier Marker if assigned */}
-                {(activeOrder?.status === 'assigned' || activeOrder?.status === 'accepted' || activeOrder?.status === 'picked_up') && (
+                {(activeOrder?.status === 'assigned' || activeOrder?.status === 'accepted' || activeOrder?.status === 'confirmed' || activeOrder?.status === 'picked_up') && (
                     <Marker
                         coordinate={courierLocation || {
                             latitude: 5.6508,
@@ -298,7 +319,7 @@ const HomeScreen = ({ route }: any) => {
                                         <Text className="font-semibold">{activeOrder.dropoff_address}</Text>
                                     </View>
 
-                                    {activeOrder.status === 'assigned' || activeOrder.status === 'accepted' ? (
+                                    {activeOrder.status === 'assigned' || activeOrder.status === 'accepted' || activeOrder.status === 'confirmed' ? (
                                         <TouchableOpacity
                                             onPress={() => updateOrderStatus('picked_up')}
                                             className="bg-blue-600 w-full py-4 rounded-xl items-center mb-2"
@@ -350,7 +371,7 @@ const HomeScreen = ({ route }: any) => {
                                     <Text className="text-xl font-bold mb-2 text-slate-800 text-center">
                                         {activeOrder.status === 'created' ? 'Finding Courier...' :
                                             activeOrder.status === 'assigned' ? 'Courier Assigned!' :
-                                                activeOrder.status === 'accepted' ? 'Courier is coming' :
+                                                (activeOrder.status === 'accepted' || activeOrder.status === 'confirmed') ? 'Courier is coming' :
                                                     activeOrder.status === 'picked_up' ? 'Heading to destination' :
                                                         activeOrder.status}
                                     </Text>
