@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Alert, Switch } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 
 import { courierApi, orderApi } from '../services/api';
 import SocketService from '../services/socket';
@@ -12,6 +13,67 @@ const HomeScreen = ({ route }: any) => {
     const [isOnline, setIsOnline] = useState(false);
     const [loading, setLoading] = useState(false);
     const [activeOrder, setActiveOrder] = useState<any>(null);
+    const [courierLocation, setCourierLocation] = useState<any>(null);
+    const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+
+    // Initial Location Permission & Get Location
+    React.useEffect(() => {
+        (async () => {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission to access location was denied');
+                return;
+            }
+
+            let location = await Location.getCurrentPositionAsync({});
+            setUserLocation(location);
+        })();
+    }, []);
+
+    // Courier: Emit Live Location
+    React.useEffect(() => {
+        let subscription: Location.LocationSubscription | null = null;
+
+        const startTracking = async () => {
+            if (isCourier && isOnline && user.id) {
+                subscription = await Location.watchPositionAsync(
+                    {
+                        accuracy: Location.Accuracy.High,
+                        timeInterval: 5000,
+                        distanceInterval: 10
+                    },
+                    (loc) => {
+                        console.log('Emitting location:', loc.coords);
+                        SocketService.emit('updateLocation', {
+                            courierId: user.id,
+                            lat: loc.coords.latitude,
+                            lng: loc.coords.longitude
+                        });
+                        setUserLocation(loc); // Keep local state updated too
+                    }
+                );
+            }
+        };
+
+        startTracking();
+
+        return () => {
+            if (subscription) subscription.remove();
+        };
+    }, [isCourier, isOnline, user.id]);
+
+    // Customer: Listen for Courier Location
+    React.useEffect(() => {
+        if (!isCourier && activeOrder) {
+            SocketService.on('courierLocationUpdate', (data) => {
+                console.log('Courier moved:', data);
+                setCourierLocation({
+                    latitude: data.lat,
+                    longitude: data.lng,
+                });
+            });
+        }
+    }, [!isCourier, activeOrder]);
 
     // Socket Connection
     React.useEffect(() => {
@@ -95,6 +157,21 @@ const HomeScreen = ({ route }: any) => {
         }
     };
 
+    // Customer: Listen for Status Updates
+    React.useEffect(() => {
+        if (!isCourier && activeOrder) {
+            SocketService.on('orderStatusUpdated', (data) => {
+                if (data.orderId === activeOrder.id) {
+                    setActiveOrder(data.order);
+                    if (data.status === 'delivered') {
+                        Alert.alert('Order Delivered', 'Your order has arrived!');
+                        setActiveOrder(null);
+                    }
+                }
+            });
+        }
+    }, [!isCourier, activeOrder]);
+
     const handleCreateOrder = async () => {
         if (!pickupAddress || !dropoffAddress) {
             Alert.alert('Error', 'Please enter pickup and dropoff');
@@ -103,17 +180,20 @@ const HomeScreen = ({ route }: any) => {
 
         setLoading(true);
         try {
-            // Mock coordinates and pricing for demo
+            // Use Real Location if available, else fallback to Legon
+            const pickupLat = userLocation?.coords.latitude || 5.6508;
+            const pickupLng = userLocation?.coords.longitude || -0.1870;
+
             const orderData = {
                 customerId: user.id,
                 pickup: {
-                    lat: 5.6508,
-                    lng: -0.1870,
-                    address: pickupAddress,
+                    lat: pickupLat,
+                    lng: pickupLng,
+                    address: pickupAddress, // In real app, reverse geocode here
                     phone: user.phone_number
                 },
                 dropoff: {
-                    lat: 5.6231, // Slightly different location
+                    lat: 5.6231, // Still hardcoded dropoff for demo until we add Place Picker
                     lng: -0.1764,
                     address: dropoffAddress,
                     phone: '0500000000'
@@ -121,12 +201,13 @@ const HomeScreen = ({ route }: any) => {
                 vehicleType: 'motorcycle',
                 pricingDetails: { base: 10, distance: 5 },
                 totalAmount: 15.00,
-                paymentMethod: 'cash', // Default to cash/cod for testing
-                notes: 'Test order from mobile'
+                paymentMethod: 'cash',
+                notes: 'Order from mobile (GPS)'
             };
 
             const response = await orderApi.create(orderData);
             Alert.alert('Success', `Order Created! ID: ${response.data.id}`);
+            setActiveOrder(response.data);
         } catch (error: any) {
             console.error(error);
             Alert.alert('Error', 'Failed to create order: ' + (error.response?.data?.error || error.message));
@@ -135,22 +216,50 @@ const HomeScreen = ({ route }: any) => {
         }
     };
 
+    // Map Reference
+    const mapRef = React.useRef<MapView>(null);
+
+    // Animate to user location when found
+    React.useEffect(() => {
+        if (userLocation && mapRef.current) {
+            mapRef.current.animateToRegion({
+                latitude: userLocation.coords.latitude,
+                longitude: userLocation.coords.longitude,
+                latitudeDelta: 0.01, // Zoom in closer
+                longitudeDelta: 0.01,
+            }, 1000);
+        }
+    }, [userLocation]);
+
     return (
         <View style={styles.container}>
             <MapView
+                ref={mapRef}
                 style={styles.map}
                 initialRegion={{
-                    latitude: 5.6037,
+                    latitude: 5.6037, // Default fallback
                     longitude: -0.1870,
                     latitudeDelta: 0.0922,
                     longitudeDelta: 0.0421,
                 }}
+                showsUserLocation={true}
             >
-                <Marker
-                    coordinate={{ latitude: 5.6037, longitude: -0.1870 }}
-                    title={isCourier ? "Your Location" : "Pickup Location"}
-                    pinColor={isCourier ? "orange" : "blue"}
-                />
+
+                {/* Show Courier Marker if assigned */}
+                {(activeOrder?.status === 'assigned' || activeOrder?.status === 'accepted' || activeOrder?.status === 'picked_up') && (
+                    <Marker
+                        coordinate={courierLocation || {
+                            latitude: 5.6508,
+                            longitude: -0.1870
+                        }}
+                        title="Courier"
+                        pinColor="orange"
+                    >
+                        <View style={{ backgroundColor: 'white', padding: 5, borderRadius: 10 }}>
+                            <Text>🚴</Text>
+                        </View>
+                    </Marker>
+                )}
             </MapView>
 
             <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
@@ -225,27 +334,51 @@ const HomeScreen = ({ route }: any) => {
                 ) : (
                     <View style={styles.bottomContainer}>
                         <View className="bg-white p-6 rounded-t-3xl shadow-xl">
-                            <Text className="text-lg font-bold text-slate-800 mb-4">Where to?</Text>
+                            {activeOrder ? (
+                                <View className="w-full">
+                                    <Text className="text-xl font-bold mb-2 text-slate-800 text-center">
+                                        {activeOrder.status === 'created' ? 'Finding Courier...' :
+                                            activeOrder.status === 'assigned' ? 'Courier Assigned!' :
+                                                activeOrder.status === 'accepted' ? 'Courier is coming' :
+                                                    activeOrder.status === 'picked_up' ? 'Heading to destination' :
+                                                        activeOrder.status}
+                                    </Text>
 
-                            <View className="bg-slate-100 p-4 rounded-xl mb-2">
-                                <Text className="text-xs text-gray-500 mb-1">Pickup</Text>
-                                <Text className="font-semibold">{pickupAddress}</Text>
-                            </View>
+                                    <View className="bg-slate-100 p-4 rounded-xl mb-4">
+                                        <Text className="font-semibold text-center mb-2">ETA: 10 mins</Text>
+                                        <View className="flex-row justify-between">
+                                            <Text className="text-gray-500">Total</Text>
+                                            <Text className="font-bold">GHS {activeOrder.total_amount_ghs}</Text>
+                                        </View>
+                                    </View>
 
-                            <View className="bg-slate-100 p-4 rounded-xl mb-4">
-                                <Text className="text-xs text-gray-500 mb-1">Dropoff</Text>
-                                <Text className="font-semibold">{dropoffAddress}</Text>
-                            </View>
+                                    {/* Cancel Button if needed */}
+                                </View>
+                            ) : (
+                                <>
+                                    <Text className="text-lg font-bold text-slate-800 mb-4">Where to?</Text>
 
-                            <TouchableOpacity
-                                className="bg-slate-900 py-3 rounded-xl items-center"
-                                onPress={handleCreateOrder}
-                                disabled={loading}
-                            >
-                                <Text className="text-white font-bold">
-                                    {loading ? 'Requesting...' : 'Request Ride / Delivery'}
-                                </Text>
-                            </TouchableOpacity>
+                                    <View className="bg-slate-100 p-4 rounded-xl mb-2">
+                                        <Text className="text-xs text-gray-500 mb-1">Pickup</Text>
+                                        <Text className="font-semibold">{pickupAddress}</Text>
+                                    </View>
+
+                                    <View className="bg-slate-100 p-4 rounded-xl mb-4">
+                                        <Text className="text-xs text-gray-500 mb-1">Dropoff</Text>
+                                        <Text className="font-semibold">{dropoffAddress}</Text>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        className="bg-slate-900 py-3 rounded-xl items-center"
+                                        onPress={handleCreateOrder}
+                                        disabled={loading}
+                                    >
+                                        <Text className="text-white font-bold">
+                                            {loading ? 'Requesting...' : 'Request Ride / Delivery'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
                         </View>
                     </View>
                 )}

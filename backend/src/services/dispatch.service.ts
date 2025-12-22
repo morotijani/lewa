@@ -99,20 +99,21 @@ export const DispatchService = {
       }
 
       // 3. Update Order
-      await client.query(
-        `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW() WHERE id = $2`,
+      const updateRes = await client.query(
+        `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW() WHERE id = $2 RETURNING *`,
         [courier.id, orderId]
       );
+      const updatedOrder = updateRes.rows[0];
 
-      // 4. Update Courier Status (Optional, keeping them 'online' but maybe add busy check later)
-      // For now, just logging
+      // 4. Logging
       console.log(`Assigned courier ${courier.full_name} (${courier.id}) to order ${orderId}`);
 
       await client.query('COMMIT');
 
       const { SocketService } = require('./socket.service');
-      SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { status: 'assigned', courier });
-      SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', courier });
+      // Emit full order object to match frontend expectation
+      SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
+      SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
 
       // Notify Courier
       // Assuming courier is connected and joined 'courier_{id}' or 'user_{id}'? 

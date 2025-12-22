@@ -1,5 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import pool from '../db';
 
 export class SocketService {
     private static io: SocketIOServer;
@@ -16,15 +17,20 @@ export class SocketService {
             console.log(`New client connected: ${socket.id}`);
 
             // Handle courier location updates
-            socket.on('updateLocation', (data: { courierId: string; lat: number; lng: number }) => {
-                // Broadcast to relevant rooms (e.g., admin, or specific user tracking this courier)
-                // For MVP, just broadcast to everyone or a specific 'tracking' room
-                // Real app: socket.to(`tracking_${data.courierId}`).emit('locationUpdated', data);
+            socket.on('updateLocation', async (data: { courierId: string; lat: number; lng: number }) => {
+                // Broadcast to customers/admin
+                socket.broadcast.emit('courierLocationUpdate', data);
 
-                console.log(`Location update from ${data.courierId}:`, data);
-                socket.broadcast.emit('courierLocationUpdate', data);
-                console.log(`Location update from ${data.courierId}:`, data);
-                socket.broadcast.emit('courierLocationUpdate', data);
+                // PERSIST to Database for DispatchService
+                try {
+                    // data.courierId is the user_id (from mobile)
+                    await pool.query(
+                        `UPDATE couriers SET current_lat = $1, current_lng = $2, updated_at = NOW() WHERE user_id = $3`,
+                        [data.lat, data.lng, data.courierId]
+                    );
+                } catch (err) {
+                    console.error('Failed to update courier location in DB:', err);
+                }
             });
 
             // Identify user and join their room
