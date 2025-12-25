@@ -64,5 +64,39 @@ export const AuthService = {
             token,
             hasCourierProfile
         };
+    },
+
+    async registerMerchant(data: { phone: string, email: string, fullName: string, password: string, businessName: string, address: string }) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const hashedPassword = await bcrypt.hash(data.password, 10);
+            const userRes = await client.query(
+                `INSERT INTO users (phone_number, email, full_name, role, password_hash) 
+                 VALUES ($1, $2, $3, 'merchant', $4) 
+                 RETURNING id`,
+                [data.phone, data.email, data.fullName, hashedPassword]
+            );
+            const userId = userRes.rows[0].id;
+
+            const merchantRes = await client.query(
+                `INSERT INTO merchants (user_id, business_name, address_text, status) 
+                 VALUES ($1, $2, $3, 'pending') 
+                 RETURNING *`,
+                [userId, data.businessName, data.address]
+            );
+
+            await client.query('COMMIT');
+            return {
+                user: { id: userId, role: 'merchant' },
+                merchant: merchantRes.rows[0]
+            };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     }
 };
+

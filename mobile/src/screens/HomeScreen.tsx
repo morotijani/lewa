@@ -15,6 +15,8 @@ const HomeScreen = ({ route, navigation }: any) => {
     const [activeOrder, setActiveOrder] = useState<any>(null);
     const [courierLocation, setCourierLocation] = useState<any>(null);
     const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+    const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+
 
     // Initial Location Permission & Get Location
     React.useEffect(() => {
@@ -437,12 +439,37 @@ const HomeScreen = ({ route, navigation }: any) => {
                                             <Text className="font-bold">GHS {activeOrder.total_amount_ghs}</Text>
                                         </View>
                                     </View>
+                                </View>
+                            ) : !isCreatingOrder ? (
+                                <View className="flex-row space-x-4">
+                                    <TouchableOpacity
+                                        className="flex-1 bg-orange-600 p-6 rounded-3xl items-center shadow-lg shadow-orange-300"
+                                        onPress={() => navigation.navigate('MerchantList')}
+                                    >
+                                        <View className="bg-orange-500 p-3 rounded-2xl mb-3">
+                                            <Store color="white" size={32} />
+                                        </View>
+                                        <Text className="text-white font-black text-lg">Order Food</Text>
+                                    </TouchableOpacity>
 
-                                    {/* Cancel Button if needed */}
+                                    <TouchableOpacity
+                                        className="flex-1 bg-slate-50 p-6 rounded-3xl items-center border border-slate-100 shadow-sm"
+                                        onPress={() => setIsCreatingOrder(true)}
+                                    >
+                                        <View className="bg-slate-200 p-3 rounded-2xl mb-3">
+                                            <Package color="#ea580c" size={32} />
+                                        </View>
+                                        <Text className="text-slate-800 font-extrabold text-lg text-center">Send Parcel</Text>
+                                    </TouchableOpacity>
                                 </View>
                             ) : (
                                 <>
-                                    <Text className="text-lg font-bold text-slate-800 mb-4">Where to?</Text>
+                                    <View className="flex-row justify-between items-center mb-4">
+                                        <Text className="text-lg font-bold text-slate-800">Parcel Delivery</Text>
+                                        <TouchableOpacity onPress={() => setIsCreatingOrder(false)}>
+                                            <Text className="text-orange-600 font-bold">Cancel</Text>
+                                        </TouchableOpacity>
+                                    </View>
 
                                     <View className="bg-slate-100 p-4 rounded-xl mb-2">
                                         <Text className="text-xs text-gray-500 mb-1">Pickup</Text>
@@ -465,6 +492,7 @@ const HomeScreen = ({ route, navigation }: any) => {
                                     </TouchableOpacity>
                                 </>
                             )}
+
                         </View>
                     </View>
                 )}

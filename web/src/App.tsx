@@ -7,12 +7,16 @@ import Merchants from './pages/Merchants';
 import MerchantLayout from './components/MerchantLayout';
 import MerchantDashboard from './pages/merchant/MerchantDashboard';
 import MenuManager from './pages/merchant/MenuManager';
+import MerchantRegister from './pages/MerchantRegister';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/register-merchant" element={<MerchantRegister />} />
+
         {/* Admin Routes */}
+
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="map" element={<LiveMap />} />

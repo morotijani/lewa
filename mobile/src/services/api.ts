@@ -31,7 +31,14 @@ api.interceptors.request.use(
 export const authApi = {
     login: (data: any) => api.post('/auth/login', data),
     register: (data: any) => api.post('/auth/register', data),
+    registerMerchant: (data: any) => api.post('/auth/register-merchant', data),
 };
+
+export const merchantApi = {
+    getActive: () => api.get('/merchant/active'),
+    getMenu: (merchantId: string) => api.get(`/merchant/${merchantId}/menu`),
+};
+
 
 export const courierApi = {
     updateStatus: (data: { userId: string, isOnline: boolean, lat: number, lng: number }) => api.post('/couriers/status', data),

@@ -6,15 +6,22 @@ import { authApi } from '../services/api';
 
 const AuthScreen = ({ navigation }: any) => {
     const [isLogin, setIsLogin] = useState(true);
-    const [isCourierRole, setIsCourierRole] = useState(false); // New state for role selection
+    const [role, setRole] = useState<'customer' | 'courier' | 'merchant'>('customer');
     const [loading, setLoading] = useState(false);
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
+    const [businessName, setBusinessName] = useState('');
+    const [address, setAddress] = useState('');
 
     const handleAuth = async () => {
-        if (!phone || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+        if (!phone || !password || (!isLogin && !fullName)) {
+            Alert.alert('Error', 'Please fill in required fields');
+            return;
+        }
+
+        if (!isLogin && role === 'merchant' && (!businessName || !address)) {
+            Alert.alert('Error', 'Please fill in business details');
             return;
         }
 
@@ -23,29 +30,43 @@ const AuthScreen = ({ navigation }: any) => {
             let response;
             if (isLogin) {
                 response = await authApi.login({ phone, password });
+            } else if (role === 'merchant') {
+                response = await authApi.registerMerchant({
+                    phone,
+                    email: `${phone}@lewa.com`, // Mock email for now if not provided
+                    fullName,
+                    password,
+                    businessName,
+                    address
+                });
             } else {
                 response = await authApi.register({
                     phone,
                     password,
                     fullName,
-                    role: isCourierRole ? 'courier' : 'customer'
+                    role
                 });
             }
 
             Alert.alert('Success', `Welcome ${isLogin ? '' : 'to Lewa'}!`);
 
+            // For merchants registering, they might not get a token immediately or they need verification
+            if (!isLogin && role === 'merchant') {
+                Alert.alert('Success', 'Registered! Please wait for admin verification.');
+                setIsLogin(true);
+                setRole('customer');
+                return;
+            }
+
             const userData = response.data.user || response.data;
             const token = response.data.token;
             const hasProfile = response.data.hasCourierProfile;
 
-            // Save session
             if (token) {
                 await AsyncStorage.setItem('userToken', token);
                 await AsyncStorage.setItem('userData', JSON.stringify(userData));
             }
 
-            // Logic: If Courier AND No Profile -> Go to Setup
-            // Otherwise -> Home
             if (userData.role === 'courier' && !hasProfile) {
                 navigation.replace('CourierSetup', { user: userData });
             } else {
@@ -76,21 +97,47 @@ const AuthScreen = ({ navigation }: any) => {
                             onChangeText={setFullName}
                         />
 
-                        <View className="flex-row items-center mb-4">
-                            <Text className="text-slate-600 mr-2">Sign up as:</Text>
-                            <TouchableOpacity
-                                onPress={() => setIsCourierRole(false)}
-                                className={`px-4 py-2 rounded-l-lg border border-slate-200 ${!isCourierRole ? 'bg-orange-100 border-orange-500' : 'bg-white'}`}
-                            >
-                                <Text className={!isCourierRole ? 'text-orange-700 font-bold' : 'text-slate-500'}>Customer</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => setIsCourierRole(true)}
-                                className={`px-4 py-2 rounded-r-lg border border-slate-200 ${isCourierRole ? 'bg-orange-100 border-orange-500' : 'bg-white'}`}
-                            >
-                                <Text className={isCourierRole ? 'text-orange-700 font-bold' : 'text-slate-500'}>Courier</Text>
-                            </TouchableOpacity>
+                        <View className="mb-4">
+                            <Text className="text-slate-600 mb-2">Sign up as:</Text>
+                            <View className="flex-row">
+                                <TouchableOpacity
+                                    onPress={() => setRole('customer')}
+                                    className={`flex-1 px-4 py-3 rounded-l-lg border border-slate-200 ${role === 'customer' ? 'bg-orange-100 border-orange-500' : 'bg-white'}`}
+                                >
+                                    <Text className={`text-center ${role === 'customer' ? 'text-orange-700 font-bold' : 'text-slate-500'}`}>Customer</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setRole('courier')}
+                                    className={`flex-1 px-4 py-3 border-y border-slate-200 ${role === 'courier' ? 'bg-orange-100 border-orange-500' : 'bg-white'}`}
+                                >
+                                    <Text className={`text-center ${role === 'courier' ? 'text-orange-700 font-bold' : 'text-slate-500'}`}>Courier</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setRole('merchant')}
+                                    className={`flex-1 px-4 py-3 rounded-r-lg border border-slate-200 ${role === 'merchant' ? 'bg-orange-100 border-orange-500' : 'bg-white'}`}
+                                >
+                                    <Text className={`text-center ${role === 'merchant' ? 'text-orange-700 font-bold' : 'text-slate-500'}`}>Merchant</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
+
+                        {role === 'merchant' && (
+                            <>
+                                <TextInput
+                                    placeholder="Business Name"
+                                    className="w-full bg-slate-100 p-4 rounded-xl mb-4 text-slate-800"
+                                    value={businessName}
+                                    onChangeText={setBusinessName}
+                                />
+                                <TextInput
+                                    placeholder="Business Address"
+                                    multiline
+                                    className="w-full bg-slate-100 p-4 rounded-xl mb-4 text-slate-800 h-24"
+                                    value={address}
+                                    onChangeText={setAddress}
+                                />
+                            </>
+                        )}
                     </>
                 )}
 
@@ -130,6 +177,7 @@ const AuthScreen = ({ navigation }: any) => {
                         {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login"}
                     </Text>
                 </TouchableOpacity>
+
             </View>
         </SafeAreaView>
     );

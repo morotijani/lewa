@@ -9,8 +9,10 @@ export const OrderService = {
         pricingDetails: any;
         totalAmount: number;
         paymentMethod: string;
+        items?: any[];
         notes?: string;
     }) {
+
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -20,8 +22,8 @@ export const OrderService = {
           customer_id, 
           pickup_lat, pickup_lng, pickup_address, pickup_phone, pickup_landmark,
           dropoff_lat, dropoff_lng, dropoff_address, dropoff_phone, dropoff_landmark,
-          pricing_details, total_amount_ghs, payment_method, notes, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'created')
+          pricing_details, total_amount_ghs, payment_method, notes, items, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'created')
         RETURNING *
       `;
 
@@ -29,8 +31,9 @@ export const OrderService = {
                 data.customerId,
                 data.pickup.lat, data.pickup.lng, data.pickup.address, data.pickup.phone, data.pickup.landmark,
                 data.dropoff.lat, data.dropoff.lng, data.dropoff.address, data.dropoff.phone, data.dropoff.landmark,
-                data.pricingDetails, data.totalAmount, data.paymentMethod, data.notes
+                data.pricingDetails, data.totalAmount, data.paymentMethod, data.notes, JSON.stringify(data.items || [])
             ];
+
 
             const result = await client.query(queryText, values);
             await client.query('COMMIT');

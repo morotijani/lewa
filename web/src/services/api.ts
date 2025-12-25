@@ -11,6 +11,12 @@ const api = axios.create({
     },
 });
 
+export const authApi = {
+    login: (data: any) => api.post('/auth/login', data),
+    register: (data: any) => api.post('/auth/register', data),
+    registerMerchant: (data: any) => api.post('/auth/register-merchant', data),
+};
+
 export const adminApi = {
     getStats: () => api.get('/admin/stats'),
     getCouriers: () => api.get('/admin/couriers'),
@@ -18,7 +24,6 @@ export const adminApi = {
     getMerchants: () => api.get('/admin/merchants'),
     verifyMerchant: (id: string, status: string) => api.patch(`/admin/merchants/${id}/status`, { status }),
 };
-
 
 export const merchantApi = {
     getMenu: (merchantId: string) => api.get(`/merchant/${merchantId}/menu`),
@@ -30,3 +35,4 @@ export const merchantApi = {
 };
 
 export default api;
+

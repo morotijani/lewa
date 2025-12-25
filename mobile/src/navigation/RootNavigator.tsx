@@ -8,8 +8,11 @@ import AuthScreen from '../screens/AuthScreen';
 import HomeScreen from '../screens/HomeScreen';
 import CourierSetupScreen from '../screens/CourierSetupScreen';
 import CourierProfileScreen from '../screens/CourierProfileScreen';
+import MerchantListScreen from '../screens/MerchantListScreen';
+import MenuDetailsScreen from '../screens/MenuDetailsScreen';
 
 const Stack = createNativeStackNavigator();
+
 
 const RootNavigator = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +59,10 @@ const RootNavigator = () => {
                 />
                 <Stack.Screen name="CourierSetup" component={CourierSetupScreen} />
                 <Stack.Screen name="CourierProfile" component={CourierProfileScreen} />
+                <Stack.Screen name="MerchantList" component={MerchantListScreen} />
+                <Stack.Screen name="MenuDetails" component={MenuDetailsScreen} />
             </Stack.Navigator>
+
         </NavigationContainer>
     );
 };
