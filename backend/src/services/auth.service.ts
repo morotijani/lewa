@@ -59,11 +59,29 @@ export const AuthService = {
             hasCourierProfile = courierRes.rows.length > 0;
         }
 
+        // Check for merchant profile
+        let merchantData = null;
+        if (user.role === 'merchant' || user.role.toLowerCase() === 'merchant') {
+            const merchantRes = await pool.query('SELECT id, status, business_name FROM merchants WHERE user_id = $1', [user.id]);
+            if (merchantRes.rows.length > 0) {
+                merchantData = {
+                    id: merchantRes.rows[0].id,
+                    status: merchantRes.rows[0].status,
+                    business_name: merchantRes.rows[0].business_name
+                };
+            } else {
+                console.log(`User ${user.id} has merchant role but no merchant profile found.`);
+            }
+        }
+
         return {
             user: { id: user.id, name: user.full_name, role: user.role, phone_number: user.phone_number },
             token,
-            hasCourierProfile
+            hasCourierProfile,
+            merchant: merchantData
         };
+
+
     },
 
     async registerMerchant(data: { phone: string, email: string, fullName: string, password: string, businessName: string, address: string }) {

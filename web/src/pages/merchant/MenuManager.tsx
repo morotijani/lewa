@@ -1,25 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Edit2, Trash2, Utensils, Loader2, Package, Check, X } from 'lucide-react';
 import { merchantApi } from '../../services/api';
-
-// For demo purposes, we use a fixed ID. 
-// In a real app, this comes from auth context.
-const DEMO_MERCHANT_ID = 'd187e383-7dad-44d3-8b7f-30bc221977d4';
+import { useAuth } from '../../context/AuthContext';
 
 const MenuManager = () => {
+    const { merchant } = useAuth();
     const [menuItems, setMenuItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Simple Add/Edit Form State
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [newItem, setNewItem] = useState({ name: '', price: '', category: 'Main', description: '' });
 
     const fetchMenu = async () => {
-        // ... existing fetch ...
+        if (!merchant?.id) {
+            setLoading(false);
+            return;
+        }
         try {
-            console.log('Fetching menu for:', DEMO_MERCHANT_ID);
-            const res = await merchantApi.getMenu(DEMO_MERCHANT_ID);
+            const res = await merchantApi.getMenu(merchant.id);
             setMenuItems(res.data);
         } catch (err) {
             console.error('Failed to fetch menu', err);
@@ -28,17 +27,16 @@ const MenuManager = () => {
         }
     };
 
-    // ... useEffect ...
 
     useEffect(() => {
         fetchMenu();
-    }, []);
+    }, [merchant?.id]);
 
-    const handleSaveItem = async () => {
-        if (!newItem.name || !newItem.price) return;
+    const handleSaveItem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newItem.name || !newItem.price || !merchant?.id) return;
         try {
             if (editingId) {
-                // Update
                 await merchantApi.updateMenuItem(editingId, {
                     name: newItem.name,
                     price: parseFloat(newItem.price),
@@ -46,8 +44,7 @@ const MenuManager = () => {
                     description: newItem.description
                 });
             } else {
-                // Create
-                await merchantApi.addMenuItem(DEMO_MERCHANT_ID, newItem);
+                await merchantApi.addMenuItem(merchant.id, newItem);
             }
             setNewItem({ name: '', price: '', category: 'Main', description: '' });
             setShowAddForm(false);
@@ -55,13 +52,14 @@ const MenuManager = () => {
             fetchMenu();
         } catch (err) {
             console.error(err);
+            alert('Failed to save item');
         }
     };
 
     const startEdit = (item: any) => {
         setNewItem({
             name: item.name,
-            price: item.price,
+            price: item.price.toString(),
             category: item.category,
             description: item.description || ''
         });
@@ -79,7 +77,7 @@ const MenuManager = () => {
     };
 
     const handleDelete = async (itemId: string) => {
-        if (!confirm('Are you sure you want to delete this item?')) return;
+        if (!confirm('Are you sure you want to delete this menu item?')) return;
         try {
             await merchantApi.deleteMenuItem(itemId);
             fetchMenu();
@@ -88,105 +86,178 @@ const MenuManager = () => {
         }
     };
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="animate-spin h-8 w-8 text-orange-500" />
+            </div>
+        );
+    }
+
     return (
-        <div>
-            {/* ... Header ... */}
-            <div className="sm:flex sm:items-center mb-6">
-                <div className="sm:flex-auto">
-                    <h1 className="text-xl font-semibold text-gray-900">Menu Items (Demo)</h1>
-                    <p className="mt-2 text-sm text-gray-700">Manage your restaurant's offerings and availability.</p>
+        <div className="space-y-6">
+            <div className="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900">Menu Items</h1>
+                    <p className="text-slate-500">Manage your restaurant offerings</p>
                 </div>
-                {/* ... Add Button ... */}
-                <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setShowAddForm(!showAddForm);
-                            setEditingId(null);
-                            setNewItem({ name: '', price: '', category: 'Main', description: '' });
-                        }}
-                        className="inline-flex items-center justify-center rounded-md border border-transparent bg-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus:outline-none sm:w-auto"
-                    >
-                        <Plus className="mr-2 h-4 w-4" /> {showAddForm ? 'Cancel' : 'Add Item'}
-                    </button>
-                </div>
+                <button
+                    onClick={() => {
+                        setShowAddForm(!showAddForm);
+                        setEditingId(null);
+                        setNewItem({ name: '', price: '', category: 'Main', description: '' });
+                    }}
+                    className={`inline-flex items-center px-6 py-3 rounded-2xl font-bold transition-all active:scale-[0.98] ${showAddForm ? 'bg-slate-100 text-slate-600' : 'bg-slate-900 text-white'
+                        }`}
+                >
+                    {showAddForm ? (
+                        <>
+                            <X className="mr-2 h-5 w-5" /> Cancel
+                        </>
+                    ) : (
+                        <>
+                            <Plus className="mr-2 h-5 w-5" /> Add New Item
+                        </>
+                    )}
+                </button>
             </div>
 
             {showAddForm && (
-                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <input
-                            placeholder="Name"
-                            className="p-2 border rounded"
-                            value={newItem.name}
-                            onChange={e => setNewItem({ ...newItem, name: e.target.value })}
-                        />
-                        <input
-                            placeholder="Price"
-                            type="number"
-                            className="p-2 border rounded"
-                            value={newItem.price}
-                            onChange={e => setNewItem({ ...newItem, price: e.target.value })}
-                        />
-                        <select
-                            className="p-2 border rounded"
-                            value={newItem.category}
-                            onChange={e => setNewItem({ ...newItem, category: e.target.value })}
-                        >
-                            <option>Main</option>
-                            <option>Sides</option>
-                            <option>Drinks</option>
-                        </select>
-                        <button onClick={handleSaveItem} className="bg-green-600 text-white rounded font-bold">
-                            {editingId ? 'Update' : 'Save'}
-                        </button>
-                    </div>
+                <div className="bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <h2 className="text-xl font-bold text-slate-900 mb-6">{editingId ? 'Edit Item' : 'Create New Menu Item'}</h2>
+                    <form onSubmit={handleSaveItem} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Item Name</label>
+                            <input
+                                required
+                                placeholder="e.g. Jollof Rice with Chicken"
+                                className="block w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50/50"
+                                value={newItem.name}
+                                onChange={e => setNewItem({ ...newItem, name: e.target.value })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Price (GHS)</label>
+                            <input
+                                required
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                className="block w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50/50"
+                                value={newItem.price}
+                                onChange={e => setNewItem({ ...newItem, price: e.target.value })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Category</label>
+                            <select
+                                className="block w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50/50 appearance-none"
+                                value={newItem.category}
+                                onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+                            >
+                                <option>Main</option>
+                                <option>Sides</option>
+                                <option>Drinks</option>
+                                <option>Dessert</option>
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Description</label>
+                            <input
+                                placeholder="Brief description of the dish"
+                                className="block w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50/50"
+                                value={newItem.description}
+                                onChange={e => setNewItem({ ...newItem, description: e.target.value })}
+                            />
+                        </div>
+                        <div className="md:col-span-2 pt-4">
+                            <button
+                                type="submit"
+                                className="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold hover:bg-orange-500 transition-all active:scale-[0.98] shadow-lg shadow-orange-200"
+                            >
+                                {editingId ? 'Update Item' : 'Save Item'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
 
-            <div className="mt-8 flex flex-col">
-                <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                    <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-                        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                            <table className="min-w-full divide-y divide-gray-300">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Category</th>
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Price (GHS)</th>
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                                        <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                                            <span className="sr-only">Edit</span>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 bg-white">
-                                    {menuItems.map((item) => (
-                                        <tr key={item.id}>
-                                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{item.name}</td>
-                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{item.category}</td>
-                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{item.price}</td>
-                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                <button
-                                                    onClick={() => toggleAvailability(item)}
-                                                    className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${item.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
-                                                >
-                                                    {item.is_available ? 'Available' : 'Sold Out'}
-                                                </button>
-                                            </td>
-                                            <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                                                <button onClick={() => startEdit(item)} className="text-indigo-600 hover:text-indigo-900 mr-4"><Edit2 size={16} /></button>
-                                                <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900"><Trash2 size={16} /></button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50/50">
+                        <tr>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Item</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Category</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Price</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {menuItems.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                                    No menu items found. Click 'Add New Item' to begin.
+                                </td>
+                            </tr>
+                        ) : (
+                            menuItems.map((item) => (
+                                <tr key={item.id} className="hover:bg-slate-50/30 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center">
+                                            <div className="h-10 w-10 flex-shrink-0 bg-orange-100 rounded-xl flex items-center justify-center">
+                                                <Utensils className="h-5 w-5 text-orange-600" />
+                                            </div>
+                                            <div className="ml-4">
+                                                <div className="text-sm font-bold text-slate-900">{item.name}</div>
+                                                <div className="text-xs text-slate-400 truncate max-w-[200px]">{item.description || 'No description'}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="px-3 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg italic">
+                                            {item.category}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-900">
+                                        GHS {item.price}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <button
+                                            onClick={() => toggleAvailability(item)}
+                                            className={`inline-flex items-center rounded-xl px-3 py-1 text-xs font-bold transition-colors ${item.is_available
+                                                ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'
+                                                : 'bg-rose-100 text-rose-600 hover:bg-rose-200'
+                                                }`}
+                                        >
+                                            {item.is_available ? <Check className="w-3 h-3 mr-1" /> : <Package className="w-3 h-3 mr-1" />}
+                                            {item.is_available ? 'Available' : 'Sold Out'}
+                                        </button>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                        <div className="flex justify-end space-x-2">
+                                            <button
+                                                onClick={() => startEdit(item)}
+                                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                title="Edit Item"
+                                            >
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(item.id)}
+                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                title="Delete Item"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
             </div>
-
         </div>
     );
 };

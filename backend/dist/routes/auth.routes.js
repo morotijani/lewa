@@ -35,4 +35,13 @@ router.post('/login', (req, res) => __awaiter(void 0, void 0, void 0, function* 
         res.status(401).json({ error: err.message });
     }
 }));
+router.post('/register-merchant', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const result = yield auth_service_1.AuthService.registerMerchant(req.body);
+        res.status(201).json(result);
+    }
+    catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+}));
 exports.default = router;

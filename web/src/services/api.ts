@@ -27,12 +27,13 @@ export const adminApi = {
 
 export const merchantApi = {
     getMenu: (merchantId: string) => api.get(`/merchant/${merchantId}/menu`),
-    addMenuItem: (merchantId: string, data: any) => api.post(`/merchant/${merchantId}/menu`, data),
-    updateMenuItem: (itemId: string, data: any) => api.patch(`/merchant/menu/${itemId}`, data),
+    addMenuItem: (merchantId: string, item: any) => api.post(`/merchant/${merchantId}/menu`, item),
+    updateMenuItem: (itemId: string, item: any) => api.patch(`/merchant/menu/${itemId}`, item),
     deleteMenuItem: (itemId: string) => api.delete(`/merchant/menu/${itemId}`),
     getOrders: (merchantId: string) => api.get(`/merchant/${merchantId}/orders`),
-    updateOrderStatus: (orderId: string, status: string) => api.patch(`/orders/${orderId}/status`, { status, userId: 'merchant-demo' }),
+    updateOrderStatus: (orderId: string, status: string) => api.patch(`/orders/${orderId}/status`, { status }),
+
+    updateMerchant: (merchantId: string, data: any) => api.patch(`/merchant/${merchantId}`, data),
 };
 
 export default api;
-

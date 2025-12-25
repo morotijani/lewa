@@ -38,6 +38,8 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/auth', authRoutes);
+
+
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);

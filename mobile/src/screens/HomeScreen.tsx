@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Alert, Switch } f
 import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import { MapPin, Navigation, Package, Power, Bell, CheckCircle, Store } from 'lucide-react-native';
 
 import { courierApi, orderApi } from '../services/api';
 import SocketService from '../services/socket';

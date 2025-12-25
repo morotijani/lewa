@@ -77,9 +77,55 @@ export const MerchantService = {
     },
 
 
+    async getMerchantByUserId(userId: string) {
+        const res = await pool.query('SELECT * FROM merchants WHERE user_id = $1', [userId]);
+        return res.rows[0];
+    },
+
+    async getMerchantById(id: string) {
+
+        const res = await pool.query('SELECT * FROM merchants WHERE id = $1', [id]);
+        return res.rows[0];
+    },
+
     async getVerifiedMerchants() {
+
         const res = await pool.query("SELECT * FROM merchants WHERE status = 'active' AND is_open = true");
         return res.rows;
+    },
+
+    async updateMerchant(merchantId: string, data: { is_open?: boolean, business_name?: string, address_text?: string }) {
+        if (Object.keys(data).length === 0) {
+            const res = await pool.query('SELECT * FROM merchants WHERE id = $1', [merchantId]);
+            return res.rows[0];
+        }
+
+        let query = 'UPDATE merchants SET ';
+        const params: any[] = [];
+        let paramIdx = 1;
+
+
+        if (data.is_open !== undefined) {
+            query += `is_open = $${paramIdx++}, `;
+            params.push(data.is_open);
+        }
+        if (data.business_name !== undefined) {
+            query += `business_name = $${paramIdx++}, `;
+            params.push(data.business_name);
+        }
+        if (data.address_text !== undefined) {
+            query += `address_text = $${paramIdx++}, `;
+            params.push(data.address_text);
+        }
+
+        // Remove trailing comma and space
+        query = query.slice(0, -2);
+        query += ` WHERE id = $${paramIdx} RETURNING *`;
+        params.push(merchantId);
+
+        const res = await pool.query(query, params);
+        return res.rows[0];
     }
+
 };
 

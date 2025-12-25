@@ -72,21 +72,63 @@ exports.MerchantService = {
     // Ideally we filter by merchant_id, but for MVP we will return latest 20 orders
     getMerchantOrders(merchantId) {
         return __awaiter(this, void 0, void 0, function* () {
-            // If we had merchant_id on orders:
-            // 'SELECT * FROM orders WHERE merchant_id = $1 ...'
-            // For now, let's just return recent orders so the dashboard looks alive
             const res = yield db_1.default.query(`
             SELECT o.*, u.full_name as customer_name,
-            -- Mock items for now since we store details in JSON or unrelated table?
-            -- Actually we should store items in a order_items table or JSONB
-            -- Let's return the whole order object
             o.notes
             FROM orders o
             JOIN users u ON o.customer_id = u.id
+            WHERE o.merchant_id = $1
             ORDER BY o.created_at DESC
             LIMIT 20
-        `);
+        `, [merchantId]);
             return res.rows;
+        });
+    },
+    getMerchantByUserId(userId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const res = yield db_1.default.query('SELECT * FROM merchants WHERE user_id = $1', [userId]);
+            return res.rows[0];
+        });
+    },
+    getMerchantById(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const res = yield db_1.default.query('SELECT * FROM merchants WHERE id = $1', [id]);
+            return res.rows[0];
+        });
+    },
+    getVerifiedMerchants() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const res = yield db_1.default.query("SELECT * FROM merchants WHERE status = 'active' AND is_open = true");
+            return res.rows;
+        });
+    },
+    updateMerchant(merchantId, data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (Object.keys(data).length === 0) {
+                const res = yield db_1.default.query('SELECT * FROM merchants WHERE id = $1', [merchantId]);
+                return res.rows[0];
+            }
+            let query = 'UPDATE merchants SET ';
+            const params = [];
+            let paramIdx = 1;
+            if (data.is_open !== undefined) {
+                query += `is_open = $${paramIdx++}, `;
+                params.push(data.is_open);
+            }
+            if (data.business_name !== undefined) {
+                query += `business_name = $${paramIdx++}, `;
+                params.push(data.business_name);
+            }
+            if (data.address_text !== undefined) {
+                query += `address_text = $${paramIdx++}, `;
+                params.push(data.address_text);
+            }
+            // Remove trailing comma and space
+            query = query.slice(0, -2);
+            query += ` WHERE id = $${paramIdx} RETURNING *`;
+            params.push(merchantId);
+            const res = yield db_1.default.query(query, params);
+            return res.rows[0];
         });
     }
 };

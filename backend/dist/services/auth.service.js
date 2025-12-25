@@ -67,11 +67,55 @@ exports.AuthService = {
                 const courierRes = yield db_1.default.query('SELECT id FROM couriers WHERE user_id = $1', [user.id]);
                 hasCourierProfile = courierRes.rows.length > 0;
             }
+            // Check for merchant profile
+            let merchantData = null;
+            if (user.role === 'merchant' || user.role.toLowerCase() === 'merchant') {
+                const merchantRes = yield db_1.default.query('SELECT id, status, business_name FROM merchants WHERE user_id = $1', [user.id]);
+                if (merchantRes.rows.length > 0) {
+                    merchantData = {
+                        id: merchantRes.rows[0].id,
+                        status: merchantRes.rows[0].status,
+                        business_name: merchantRes.rows[0].business_name
+                    };
+                }
+                else {
+                    console.log(`User ${user.id} has merchant role but no merchant profile found.`);
+                }
+            }
             return {
                 user: { id: user.id, name: user.full_name, role: user.role, phone_number: user.phone_number },
                 token,
-                hasCourierProfile
+                hasCourierProfile,
+                merchant: merchantData
             };
+        });
+    },
+    registerMerchant(data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield db_1.default.connect();
+            try {
+                yield client.query('BEGIN');
+                const hashedPassword = yield bcryptjs_1.default.hash(data.password, 10);
+                const userRes = yield client.query(`INSERT INTO users (phone_number, email, full_name, role, password_hash) 
+                 VALUES ($1, $2, $3, 'merchant', $4) 
+                 RETURNING id`, [data.phone, data.email, data.fullName, hashedPassword]);
+                const userId = userRes.rows[0].id;
+                const merchantRes = yield client.query(`INSERT INTO merchants (user_id, business_name, address_text, status) 
+                 VALUES ($1, $2, $3, 'pending') 
+                 RETURNING *`, [userId, data.businessName, data.address]);
+                yield client.query('COMMIT');
+                return {
+                    user: { id: userId, role: 'merchant' },
+                    merchant: merchantRes.rows[0]
+                };
+            }
+            catch (err) {
+                yield client.query('ROLLBACK');
+                throw err;
+            }
+            finally {
+                client.release();
+            }
         });
     }
 };

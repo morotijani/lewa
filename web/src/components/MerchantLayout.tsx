@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutGrid, UtensilsCrossed, Settings, LogOut } from 'lucide-react';
+import React from 'react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutGrid, UtensilsCrossed, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const MerchantLayout = () => {
     const location = useLocation();
+    const { logout, user, merchant } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
@@ -19,8 +27,8 @@ const MerchantLayout = () => {
                                 <Link
                                     to="/merchant"
                                     className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${location.pathname === '/merchant'
-                                            ? 'border-orange-500 text-gray-900'
-                                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                                        ? 'border-orange-500 text-gray-900'
+                                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                                         }`}
                                 >
                                     <LayoutGrid className="mr-2 h-4 w-4" />
@@ -29,8 +37,8 @@ const MerchantLayout = () => {
                                 <Link
                                     to="/merchant/menu"
                                     className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${location.pathname === '/merchant/menu'
-                                            ? 'border-orange-500 text-gray-900'
-                                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                                        ? 'border-orange-500 text-gray-900'
+                                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                                         }`}
                                 >
                                     <UtensilsCrossed className="mr-2 h-4 w-4" />
@@ -39,12 +47,16 @@ const MerchantLayout = () => {
                             </div>
                         </div>
                         <div className="flex items-center">
-                            <button className="p-2 rounded-full text-gray-400 hover:text-gray-500">
-                                <Settings className="h-6 w-6" />
-                            </button>
-                            <div className="ml-3 relative">
-                                <span className="text-sm font-medium text-gray-500">Pizza Hut - Accra</span>
+                            <div className="mr-4 text-right">
+                                <div className="text-sm font-bold text-gray-900">{user?.name}</div>
+                                <div className="text-xs text-orange-600">{merchant?.status}</div>
                             </div>
+                            <button
+                                onClick={handleLogout}
+                                className="p-2 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                                <LogOut className="h-6 w-6" />
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -56,5 +68,6 @@ const MerchantLayout = () => {
         </div>
     );
 };
+
 
 export default MerchantLayout;

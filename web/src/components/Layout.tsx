@@ -1,12 +1,20 @@
 import { useState } from 'react';
 
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Map, Users, Settings, Menu, X, Store } from 'lucide-react';
+import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, ShoppingBag, Map, Users, Settings, Menu, X, Store, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 
 const Layout = () => {
     const [isOpen, setIsOpen] = useState(true);
     const location = useLocation();
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
 
     const navItems = [
         { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
@@ -41,6 +49,13 @@ const Layout = () => {
                             {isOpen && <span>{item.name}</span>}
                         </Link>
                     ))}
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-3 hover:bg-red-900/40 text-red-400 transition-colors mt-auto border-t border-slate-800"
+                    >
+                        <span className="mr-3"><LogOut size={20} /></span>
+                        {isOpen && <span>Logout</span>}
+                    </button>
                 </nav>
 
                 <div className="p-4 border-t border-slate-800">
@@ -54,8 +69,11 @@ const Layout = () => {
                     <h2 className="text-lg font-semibold text-gray-700">
                         {navItems.find(i => i.path === location.pathname)?.name || 'Dashboard'}
                     </h2>
-                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold">
-                        A
+                    <div className="flex items-center space-x-3">
+                        <span className="text-sm font-medium text-slate-600">Admin: {user?.name}</span>
+                        <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold">
+                            {user?.name?.[0] || 'A'}
+                        </div>
                     </div>
                 </header>
                 <main className="p-6">
@@ -65,5 +83,6 @@ const Layout = () => {
         </div>
     );
 };
+
 
 export default Layout;

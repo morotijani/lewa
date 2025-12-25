@@ -42,4 +42,25 @@ router.get('/orders', (req, res) => __awaiter(void 0, void 0, void 0, function* 
         res.status(500).json({ error: err.message });
     }
 }));
+router.get('/merchants', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const merchants = yield admin_service_1.AdminService.getAllMerchants();
+        res.json(merchants);
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+}));
+router.patch('/merchants/:id/status', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { status } = req.body;
+        if (!status)
+            return res.status(400).json({ error: 'Status is required' });
+        const merchant = yield admin_service_1.AdminService.updateMerchantStatus(req.params.id, status);
+        res.json(merchant);
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+}));
 exports.default = router;
