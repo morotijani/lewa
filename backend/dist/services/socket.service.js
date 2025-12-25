@@ -62,6 +62,7 @@ class SocketService {
     // Helper to emit events from other services (e.g. DispatchService)
     static emitToRoom(room, event, data) {
         if (this.io) {
+            console.log(`[Socket] Emitting ${event} to ${room}`);
             this.io.to(room).emit(event, data);
         }
     }

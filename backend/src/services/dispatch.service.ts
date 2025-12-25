@@ -1,5 +1,6 @@
 import pool from '../db';
-import { PricingService } from './pricing.service'; // For distance helper if needed, but SQL is better here
+import { PricingService } from './pricing.service';
+import { SocketService } from './socket.service';
 
 export const DispatchService = {
   // Find nearest online courier with matching vehicle type
@@ -52,25 +53,24 @@ export const DispatchService = {
       }
 
       // 2. Find Courier
-      // Need vehicle type from order -> logic: infer from pricing_details or store vehicle_type in orders? 
-      // Plan didn't specify vehicle_type in orders table explicitly, but CreateOrder used it.
-      // Let's assume we stored it in 'pricing_details' json or passed it.
-      // Actually, my CreateOrder implementation didn't save vehicle_type to a column! 
-      // I should have added vehicle_type column to orders.
-      // For now, I'll extract it from pricing_details if present, or update CreateOrder to save it.
-      // Let's fix CreateOrder schema/service later if needed. For now, check pricing_details.
-
-      let vehicleType = 'motorcycle'; // Default
-      if (order.pricing_details && order.pricing_details.vehicle_type) {
+      // Use the dedicated column if available, fallback to pricing_details, then default to motorcycle
+      let vehicleType = order.vehicle_type || 'motorcycle';
+      if (!order.vehicle_type && order.pricing_details && order.pricing_details.vehicle_type) {
         vehicleType = order.pricing_details.vehicle_type;
       }
-      // Wait, CreateOrder Service save "pricingDetails". I will assume I put vehicleType there.
 
-      const courier = await this.findNearestCourier(order.pickup_lat, order.pickup_lng, vehicleType, 5, excludedCourierIds);
+      console.log(`[DispatchService] Searching for ${vehicleType} within 500km of (${order.pickup_lat}, ${order.pickup_lng}) for order ${orderId}`);
+
+      // Increase radius significantly for demo/testing across cities (e.g. Accra to Kumasi)
+      const courier = await this.findNearestCourier(order.pickup_lat, order.pickup_lng, vehicleType, 500, excludedCourierIds);
 
       if (!courier) {
-        throw new Error('No couriers available nearby');
+        console.warn(`[DispatchService] NO COURIER FOUND for order ${orderId} in 500km radius`);
+        return { success: false, error: 'No couriers available nearby' };
       }
+
+
+
 
       // 3. Update Order
       const updateRes = await client.query(
@@ -84,10 +84,10 @@ export const DispatchService = {
 
       await client.query('COMMIT');
 
-      const { SocketService } = require('./socket.service');
       // Emit full order object to match frontend expectation
       SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
       SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
+
 
       // Notify Courier
       // Assuming courier is connected and joined 'courier_{id}' or 'user_{id}'? 

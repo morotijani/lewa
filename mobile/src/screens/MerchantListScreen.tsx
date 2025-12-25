@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { merchantApi } from '../services/api';
 import { Store, Star, Clock, ChevronRight } from 'lucide-react-native';
 
-const MerchantListScreen = ({ navigation }: any) => {
+const MerchantListScreen = ({ route, navigation }: any) => {
+    const userLocation = route.params?.userLocation;
     const [merchants, setMerchants] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -26,8 +27,12 @@ const MerchantListScreen = ({ navigation }: any) => {
     const renderMerchant = ({ item }: { item: any }) => (
         <TouchableOpacity
             className="bg-white mx-4 mb-4 rounded-2xl overflow-hidden shadow-sm border border-slate-100"
-            onPress={() => navigation.navigate('MenuDetails', { merchant: item })}
+            onPress={() => navigation.navigate('MenuDetails', {
+                merchant: item,
+                userLocation
+            })}
         >
+
             <View className="flex-row p-4">
                 <View className="bg-orange-100 p-3 rounded-xl mr-4">
                     <Store color="#ea580c" size={24} />

@@ -1,4 +1,6 @@
 import pool from '../db';
+import { SocketService } from './socket.service';
+
 
 export const OrderService = {
     async createOrder(data: {
@@ -23,8 +25,8 @@ export const OrderService = {
           customer_id, merchant_id,
           pickup_lat, pickup_lng, pickup_address, pickup_phone, pickup_landmark,
           dropoff_lat, dropoff_lng, dropoff_address, dropoff_phone, dropoff_landmark,
-          pricing_details, total_amount_ghs, payment_method, notes, items, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'created')
+          pricing_details, total_amount_ghs, payment_method, notes, items, vehicle_type, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'created')
         RETURNING *
       `;
 
@@ -33,8 +35,10 @@ export const OrderService = {
                 data.merchantId || null,
                 data.pickup.lat, data.pickup.lng, data.pickup.address, data.pickup.phone, data.pickup.landmark,
                 data.dropoff.lat, data.dropoff.lng, data.dropoff.address, data.dropoff.phone, data.dropoff.landmark,
-                data.pricingDetails, data.totalAmount, data.paymentMethod, data.notes, JSON.stringify(data.items || [])
+                data.pricingDetails, data.totalAmount, data.paymentMethod, data.notes, JSON.stringify(data.items || []),
+                data.vehicleType || 'motorcycle'
             ];
+
 
 
 
@@ -88,17 +92,17 @@ export const OrderService = {
 
             await client.query('COMMIT');
 
-            // Emit update
-            const { SocketService } = require('./socket.service');
             SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
             SocketService.emitToRoom(`user_${updatedOrder.customer_id}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
 
             // TRIGGER DISPATCH IF MERCHANT ACCEPTED
             if (status === 'accepted') {
+                console.log(`[OrderService] Order ${orderId} accepted by merchant. Triggering dispatch...`);
                 const { DispatchService } = require('./dispatch.service');
                 // We don't await this to keep response fast, but in prod consider queue
-                DispatchService.assignOrder(orderId).catch((err: any) => console.error('Dispatch failed:', err));
+                DispatchService.assignOrder(orderId).catch((err: any) => console.error('[OrderService] Dispatch failed:', err));
             }
+
 
             return updatedOrder;
         } catch (e) {

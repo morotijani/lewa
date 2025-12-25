@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Alert, Switch } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { MapPin, Navigation, Package, Power, Bell, CheckCircle, Store } from 'lucide-react-native';
@@ -69,14 +70,18 @@ const HomeScreen = ({ route, navigation }: any) => {
     React.useEffect(() => {
         if (!isCourier && activeOrder) {
             const handleLocationUpdate = (data: any) => {
-                console.log('Courier moved:', data);
-                setCourierLocation({
-                    latitude: data.lat,
-                    longitude: data.lng,
-                });
+                // Filter: Only show the courier assigned to THIS order
+                if (activeOrder.courier_id && data.courierId === activeOrder.courier_id || data.userId === activeOrder.courier_id) {
+                    console.log('Courier moved:', data);
+                    setCourierLocation({
+                        latitude: data.lat,
+                        longitude: data.lng,
+                    });
+                }
             };
 
             SocketService.on('courierLocationUpdate', handleLocationUpdate);
+
 
             return () => {
                 SocketService.off('courierLocationUpdate', handleLocationUpdate);
@@ -232,16 +237,32 @@ const HomeScreen = ({ route, navigation }: any) => {
         if (!isCourier && activeOrder) {
             const handleStatusUpdate = (data: any) => {
                 if (data.orderId === activeOrder.id) {
-                    setActiveOrder(data.order);
+                    console.log(`[HomeScreen] Status update for ${data.orderId}: ${data.status}`);
+                    setActiveOrder(data.order || { ...activeOrder, status: data.status });
+
+                    // If courier is assigned, capture their location immediately
+                    if (data.status === 'assigned' && data.courier) {
+                        console.log('[HomeScreen] Courier assigned, setting initial location:', data.courier.current_lat);
+                        setCourierLocation({
+                            latitude: parseFloat(data.courier.current_lat),
+                            longitude: parseFloat(data.courier.current_lng),
+                        });
+                    }
+
                     if (data.status === 'delivered') {
                         Alert.alert('Order Delivered', 'Your order has arrived!');
                         setActiveOrder(null);
+                    } else if (data.status === 'accepted') {
+                        Alert.alert('Order Accepted', 'The merchant has accepted your order and is preparing it.');
+                    } else if (data.status === 'confirmed') {
+                        Alert.alert('Order Confirmed', 'A courier has been assigned and will arrive shortly.');
                     } else if (data.status === 'cancelled') {
                         Alert.alert('Order Cancelled', data.message || 'Your order has been cancelled.');
                         setActiveOrder(null);
                     }
                 }
             };
+
 
             SocketService.on('orderStatusUpdated', handleStatusUpdate);
 
@@ -298,17 +319,32 @@ const HomeScreen = ({ route, navigation }: any) => {
     // Map Reference
     const mapRef = React.useRef<MapView>(null);
 
-    // Animate to user location when found
+    // Animate map to user location when found
     React.useEffect(() => {
-        if (userLocation && mapRef.current) {
+        if (userLocation && mapRef.current && !activeOrder) {
             mapRef.current.animateToRegion({
                 latitude: userLocation.coords.latitude,
                 longitude: userLocation.coords.longitude,
-                latitudeDelta: 0.01, // Zoom in closer
+                latitudeDelta: 0.01,
                 longitudeDelta: 0.01,
             }, 1000);
         }
-    }, [userLocation]);
+    }, [userLocation, !!activeOrder]);
+
+    // Fit map to show both Customer and Courier when active
+    React.useEffect(() => {
+        if (activeOrder && userLocation && courierLocation && mapRef.current) {
+            const markers = [
+                { latitude: userLocation.coords.latitude, longitude: userLocation.coords.longitude },
+                { latitude: courierLocation.latitude, longitude: courierLocation.longitude }
+            ];
+            mapRef.current.fitToCoordinates(markers, {
+                edgePadding: { top: 100, right: 100, bottom: 300, left: 100 },
+                animated: true,
+            });
+        }
+    }, [courierLocation, activeOrder?.status]);
+
 
     return (
         <View style={styles.container}>
@@ -324,28 +360,75 @@ const HomeScreen = ({ route, navigation }: any) => {
                 showsUserLocation={true}
             >
 
-                {/* Show Courier Marker if assigned */}
-                {(activeOrder?.status === 'assigned' || activeOrder?.status === 'accepted' || activeOrder?.status === 'confirmed' || activeOrder?.status === 'picked_up') && (
+                {/* Restaurant Marker */}
+                {activeOrder && (
+                    <Marker
+                        coordinate={{
+                            latitude: activeOrder.pickup_lat,
+                            longitude: activeOrder.pickup_lng
+                        }}
+                        title="Restaurant"
+                        pinColor="red"
+                    >
+                        <View style={{ backgroundColor: 'white', padding: 5, borderRadius: 10, borderWeight: 1, borderColor: '#ef4444' }}>
+                            <Text>🍕</Text>
+                        </View>
+                    </Marker>
+                )}
+
+                {/* Customer/Dropoff Marker */}
+                {activeOrder && (
+                    <Marker
+                        coordinate={{
+                            latitude: activeOrder.dropoff_lat,
+                            longitude: activeOrder.dropoff_lng
+                        }}
+                        title="Delivery Location"
+                        pinColor="green"
+                    >
+                        <View style={{ backgroundColor: 'white', padding: 5, borderRadius: 10, borderWeight: 1, borderColor: '#22c55e' }}>
+                            <Text>🏠</Text>
+                        </View>
+                    </Marker>
+                )}
+
+                {/* Courier Marker */}
+                {(activeOrder?.status === 'assigned' || activeOrder?.status === 'confirmed' || activeOrder?.status === 'accepted' || activeOrder?.status === 'picked_up') && (
                     <Marker
                         coordinate={courierLocation || {
                             latitude: 5.6508,
                             longitude: -0.1870
                         }}
                         title="Courier"
-                        pinColor="orange"
                     >
-                        <View style={{ backgroundColor: 'white', padding: 5, borderRadius: 10 }}>
+                        <View style={{ backgroundColor: 'white', padding: 5, borderRadius: 10, borderWeight: 1, borderColor: '#f97316' }}>
                             <Text>🚴</Text>
                         </View>
                     </Marker>
                 )}
+
+                {/* Route Lines */}
+                {activeOrder && courierLocation && (
+                    <Polyline
+                        coordinates={[
+                            { latitude: courierLocation.latitude, longitude: courierLocation.longitude },
+                            { latitude: activeOrder.pickup_lat, longitude: activeOrder.pickup_lng },
+                            { latitude: activeOrder.dropoff_lat, longitude: activeOrder.dropoff_lng }
+                        ]}
+                        strokeColor="#f97316"
+                        strokeWidth={4}
+                        lineDashPattern={[5, 5]}
+                    />
+                )}
+
             </MapView>
 
             <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
                 <View className="bg-white/90 mx-4 mt-2 p-3 rounded-xl shadow-lg flex-row justify-between items-center">
                     <View className="flex-row items-center">
                         <View className={`w-3 h-3 rounded-full mr-2 ${socketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <Text className="font-bold text-gray-700">Mode: {isCourier ? 'Courier' : 'Customer'}</Text>
+                        <Text className="font-bold text-gray-700">Mode: {isCourier ? 'Courier' : 'Customer'} ({user.id?.substring(0, 5)})</Text>
+
                     </View>
                     {isCourier && (
                         <TouchableOpacity
@@ -445,7 +528,12 @@ const HomeScreen = ({ route, navigation }: any) => {
                                 <View className="flex-row space-x-4">
                                     <TouchableOpacity
                                         className="flex-1 bg-orange-600 p-6 rounded-3xl items-center shadow-lg shadow-orange-300"
-                                        onPress={() => navigation.navigate('MerchantList')}
+                                        onPress={() => navigation.navigate('MerchantList', {
+                                            userLocation: {
+                                                lat: userLocation?.coords.latitude || 5.6037,
+                                                lng: userLocation?.coords.longitude || -0.1870
+                                            }
+                                        })}
                                     >
                                         <View className="bg-orange-500 p-3 rounded-2xl mb-3">
                                             <Store color="white" size={32} />

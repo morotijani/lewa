@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrderService = void 0;
 const db_1 = __importDefault(require("../db"));
+const socket_service_1 = require("./socket.service");
 exports.OrderService = {
     createOrder(data) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -25,8 +26,8 @@ exports.OrderService = {
           customer_id, merchant_id,
           pickup_lat, pickup_lng, pickup_address, pickup_phone, pickup_landmark,
           dropoff_lat, dropoff_lng, dropoff_address, dropoff_phone, dropoff_landmark,
-          pricing_details, total_amount_ghs, payment_method, notes, items, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'created')
+          pricing_details, total_amount_ghs, payment_method, notes, items, vehicle_type, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'created')
         RETURNING *
       `;
                 const values = [
@@ -34,7 +35,8 @@ exports.OrderService = {
                     data.merchantId || null,
                     data.pickup.lat, data.pickup.lng, data.pickup.address, data.pickup.phone, data.pickup.landmark,
                     data.dropoff.lat, data.dropoff.lng, data.dropoff.address, data.dropoff.phone, data.dropoff.landmark,
-                    data.pricingDetails, data.totalAmount, data.paymentMethod, data.notes, JSON.stringify(data.items || [])
+                    data.pricingDetails, data.totalAmount, data.paymentMethod, data.notes, JSON.stringify(data.items || []),
+                    data.vehicleType || 'motorcycle'
                 ];
                 const result = yield client.query(queryText, values);
                 yield client.query('COMMIT');
@@ -78,15 +80,14 @@ exports.OrderService = {
                     throw new Error('Order not found');
                 const updatedOrder = result.rows[0];
                 yield client.query('COMMIT');
-                // Emit update
-                const { SocketService } = require('./socket.service');
-                SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
-                SocketService.emitToRoom(`user_${updatedOrder.customer_id}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
+                socket_service_1.SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
+                socket_service_1.SocketService.emitToRoom(`user_${updatedOrder.customer_id}`, 'orderStatusUpdated', { orderId, status, order: updatedOrder });
                 // TRIGGER DISPATCH IF MERCHANT ACCEPTED
                 if (status === 'accepted') {
+                    console.log(`[OrderService] Order ${orderId} accepted by merchant. Triggering dispatch...`);
                     const { DispatchService } = require('./dispatch.service');
                     // We don't await this to keep response fast, but in prod consider queue
-                    DispatchService.assignOrder(orderId).catch((err) => console.error('Dispatch failed:', err));
+                    DispatchService.assignOrder(orderId).catch((err) => console.error('[OrderService] Dispatch failed:', err));
                 }
                 return updatedOrder;
             }

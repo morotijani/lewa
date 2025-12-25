@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DispatchService = void 0;
 const db_1 = __importDefault(require("../db"));
+const socket_service_1 = require("./socket.service");
 exports.DispatchService = {
     // Find nearest online courier with matching vehicle type
     findNearestCourier(pickupLat_1, pickupLng_1, vehicleType_1) {
@@ -63,21 +64,17 @@ exports.DispatchService = {
                     throw new Error(`Order is not in a dispatchable state (current: ${order.status})`);
                 }
                 // 2. Find Courier
-                // Need vehicle type from order -> logic: infer from pricing_details or store vehicle_type in orders? 
-                // Plan didn't specify vehicle_type in orders table explicitly, but CreateOrder used it.
-                // Let's assume we stored it in 'pricing_details' json or passed it.
-                // Actually, my CreateOrder implementation didn't save vehicle_type to a column! 
-                // I should have added vehicle_type column to orders.
-                // For now, I'll extract it from pricing_details if present, or update CreateOrder to save it.
-                // Let's fix CreateOrder schema/service later if needed. For now, check pricing_details.
-                let vehicleType = 'motorcycle'; // Default
-                if (order.pricing_details && order.pricing_details.vehicle_type) {
+                // Use the dedicated column if available, fallback to pricing_details, then default to motorcycle
+                let vehicleType = order.vehicle_type || 'motorcycle';
+                if (!order.vehicle_type && order.pricing_details && order.pricing_details.vehicle_type) {
                     vehicleType = order.pricing_details.vehicle_type;
                 }
-                // Wait, CreateOrder Service save "pricingDetails". I will assume I put vehicleType there.
-                const courier = yield this.findNearestCourier(order.pickup_lat, order.pickup_lng, vehicleType, 5, excludedCourierIds);
+                console.log(`[DispatchService] Searching for ${vehicleType} within 500km of (${order.pickup_lat}, ${order.pickup_lng}) for order ${orderId}`);
+                // Increase radius significantly for demo/testing across cities (e.g. Accra to Kumasi)
+                const courier = yield this.findNearestCourier(order.pickup_lat, order.pickup_lng, vehicleType, 500, excludedCourierIds);
                 if (!courier) {
-                    throw new Error('No couriers available nearby');
+                    console.warn(`[DispatchService] NO COURIER FOUND for order ${orderId} in 500km radius`);
+                    return { success: false, error: 'No couriers available nearby' };
                 }
                 // 3. Update Order
                 const updateRes = yield client.query(`UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW() WHERE id = $2 RETURNING *`, [courier.id, orderId]);
@@ -85,17 +82,16 @@ exports.DispatchService = {
                 // 4. Logging
                 console.log(`Assigned courier ${courier.full_name} (${courier.id}) to order ${orderId}`);
                 yield client.query('COMMIT');
-                const { SocketService } = require('./socket.service');
                 // Emit full order object to match frontend expectation
-                SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
-                SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
+                socket_service_1.SocketService.emitToRoom(`order_${orderId}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
+                socket_service_1.SocketService.emitToRoom(`user_${order.customer_id}`, 'orderStatusUpdated', { orderId, status: 'assigned', order: updatedOrder, courier });
                 // Notify Courier
                 // Assuming courier is connected and joined 'courier_{id}' or 'user_{id}'? 
                 // SocketService usually joins 'user_{userId}' typically. Let's start with that or check socket.service.ts
                 // DispatchService uses courier.id (which is the courier profile ID) or courier.user_id? 
                 // findNearestCourier returns c.id, c.user_id via query
                 // The socket usually authenticates with User ID. So 'user_{courier.user_id}' is safe.
-                SocketService.emitToRoom(`user_${courier.user_id}`, 'newOrder', { order, status: 'assigned' });
+                socket_service_1.SocketService.emitToRoom(`user_${courier.user_id}`, 'newOrder', { order, status: 'assigned' });
                 return { success: true, courier };
             }
             catch (e) {
