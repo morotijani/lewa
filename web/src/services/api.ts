@@ -15,7 +15,10 @@ export const adminApi = {
     getStats: () => api.get('/admin/stats'),
     getCouriers: () => api.get('/admin/couriers'),
     getOrders: () => api.get('/admin/orders'),
+    getMerchants: () => api.get('/admin/merchants'),
+    verifyMerchant: (id: string, status: string) => api.patch(`/admin/merchants/${id}/status`, { status }),
 };
+
 
 export const merchantApi = {
     getMenu: (merchantId: string) => api.get(`/merchant/${merchantId}/menu`),

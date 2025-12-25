@@ -51,5 +51,24 @@ export const AdminService = {
             LIMIT 10
         `);
         return res.rows;
+    },
+
+    async getAllMerchants() {
+        const res = await pool.query(`
+            SELECT m.*, u.full_name as owner_name, u.email as owner_email, u.phone_number
+            FROM merchants m
+            JOIN users u ON m.user_id = u.id
+            ORDER BY m.created_at DESC
+        `);
+        return res.rows;
+    },
+
+    async updateMerchantStatus(merchantId: string, status: string) {
+        const res = await pool.query(
+            'UPDATE merchants SET status = $1 WHERE id = $2 RETURNING *',
+            [status, merchantId]
+        );
+        return res.rows[0];
     }
 };
+

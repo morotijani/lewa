@@ -139,10 +139,17 @@ export const OrderService = {
 
             await client.query('COMMIT');
 
-            // Notify that order is back in pool?
-            // Actually, if status is 'accepted', the merchant dashboard sees it.
-            // We might want to trigger a "redispatch" or just let it sit until another mechanism picks it up.
-            // For MVP, simplistic release is fine.
+            // Trigger Re-dispatch (Auto-Assignment)
+            // We do this after commit so the order is visible as 'accepted' to the dispatcher
+            try {
+                // Dynamically import to avoid circular dependency if any (DispatchService -> PricingService -> ...)
+                const { DispatchService } = require('./dispatch.service');
+                console.log(`Triggering re-dispatch for order ${orderId}, excluding courier ${courierProfileId}`);
+                await DispatchService.assignOrder(orderId, [courierProfileId]);
+            } catch (dispatchErr) {
+                console.log('Re-dispatch failed (likely no other couriers available):', dispatchErr);
+                // We do NOT fail the decline request; the order remains 'accepted' for manual assignment
+            }
 
             return updatedOrder;
 

@@ -25,7 +25,7 @@ export class SocketService {
                 try {
                     // data.courierId is the user_id (from mobile)
                     await pool.query(
-                        `UPDATE couriers SET current_lat = $1, current_lng = $2, updated_at = NOW() WHERE user_id = $3`,
+                        `UPDATE couriers SET current_lat = $1, current_lng = $2, last_location_update = NOW() WHERE user_id = $3`,
                         [data.lat, data.lng, data.courierId]
                     );
                 } catch (err) {

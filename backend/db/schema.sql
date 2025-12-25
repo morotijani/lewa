@@ -27,8 +27,10 @@ CREATE TABLE merchants (
     is_open BOOLEAN DEFAULT TRUE,
     prep_time_minutes INT DEFAULT 15,
     rating DECIMAL(3, 2) DEFAULT 5.00,
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'suspended', 'rejected')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
 
 -- Couriers Table
 CREATE TABLE couriers (
@@ -82,7 +84,10 @@ CREATE TABLE orders (
     pricing_details JSONB, -- Stores full breakdown: base, distance, surge, fees
     total_amount_ghs DECIMAL(10, 2) NOT NULL,
     
+    items JSONB, -- Stores array of [{ name, price, quantity, itemId }]
+
     payment_status VARCHAR(20) DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'failed', 'refunded')),
+
     payment_method VARCHAR(20) DEFAULT 'momo' CHECK (payment_method IN ('momo', 'card', 'cash')),
     
     notes TEXT,
@@ -106,3 +111,21 @@ CREATE TABLE payments (
 CREATE INDEX idx_couriers_location ON couriers (current_lat, current_lng);
 CREATE INDEX idx_orders_status ON orders (status);
 CREATE INDEX idx_orders_customer ON orders (customer_id);
+
+-- Menu Items Table
+CREATE TABLE menu_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    merchant_id UUID REFERENCES merchants(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    category VARCHAR(50),
+    is_available BOOLEAN DEFAULT TRUE,
+    image_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_menu_merchant ON menu_items (merchant_id);
+CREATE INDEX idx_menu_category ON menu_items (category);
+

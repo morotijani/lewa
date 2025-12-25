@@ -64,20 +64,22 @@ export const MerchantService = {
     // For Demo: Fetch ALL orders that are seemingly for a restaurant (not P2P) or just latest orders
     // Ideally we filter by merchant_id, but for MVP we will return latest 20 orders
     async getMerchantOrders(merchantId: string) {
-        // If we had merchant_id on orders:
-        // 'SELECT * FROM orders WHERE merchant_id = $1 ...'
-        // For now, let's just return recent orders so the dashboard looks alive
         const res = await pool.query(`
             SELECT o.*, u.full_name as customer_name,
-            -- Mock items for now since we store details in JSON or unrelated table?
-            -- Actually we should store items in a order_items table or JSONB
-            -- Let's return the whole order object
             o.notes
             FROM orders o
             JOIN users u ON o.customer_id = u.id
+            WHERE o.merchant_id = $1
             ORDER BY o.created_at DESC
             LIMIT 20
-        `);
+        `, [merchantId]);
+        return res.rows;
+    },
+
+
+    async getVerifiedMerchants() {
+        const res = await pool.query("SELECT * FROM merchants WHERE status = 'active' AND is_open = true");
         return res.rows;
     }
 };
+

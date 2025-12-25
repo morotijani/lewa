@@ -233,6 +233,9 @@ const HomeScreen = ({ route, navigation }: any) => {
                     if (data.status === 'delivered') {
                         Alert.alert('Order Delivered', 'Your order has arrived!');
                         setActiveOrder(null);
+                    } else if (data.status === 'cancelled') {
+                        Alert.alert('Order Cancelled', data.message || 'Your order has been cancelled.');
+                        setActiveOrder(null);
                     }
                 }
             };

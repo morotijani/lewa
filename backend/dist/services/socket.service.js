@@ -32,7 +32,7 @@ class SocketService {
                 // PERSIST to Database for DispatchService
                 try {
                     // data.courierId is the user_id (from mobile)
-                    yield db_1.default.query(`UPDATE couriers SET current_lat = $1, current_lng = $2, updated_at = NOW() WHERE user_id = $3`, [data.lat, data.lng, data.courierId]);
+                    yield db_1.default.query(`UPDATE couriers SET current_lat = $1, current_lng = $2, last_location_update = NOW() WHERE user_id = $3`, [data.lat, data.lng, data.courierId]);
                 }
                 catch (err) {
                     console.error('Failed to update courier location in DB:', err);

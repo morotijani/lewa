@@ -19,8 +19,13 @@ const app = express();
 const httpServer = createServer(app); // Wrap express app
 const PORT = process.env.PORT || 3000;
 
+import { CronService } from './services/cron.service';
+
 // Initialize Socket.io
 SocketService.init(httpServer);
+
+// Start Background Jobs
+CronService.startOrderTimeoutCheck();
 
 app.use(helmet());
 app.use(cors());

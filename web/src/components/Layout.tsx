@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Map, Users, Settings, Menu, X } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Map, Users, Settings, Menu, X, Store } from 'lucide-react';
+
 
 const Layout = () => {
     const [isOpen, setIsOpen] = useState(true);
@@ -8,11 +10,13 @@ const Layout = () => {
 
     const navItems = [
         { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+        { name: 'Merchants', path: '/merchants', icon: <Store size={20} /> },
         { name: 'Live Map', path: '/map', icon: <Map size={20} /> },
         { name: 'Orders', path: '/orders', icon: <ShoppingBag size={20} /> },
         { name: 'Couriers', path: '/couriers', icon: <Users size={20} /> },
         { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
     ];
+
 
     return (
         <div className="flex h-screen bg-gray-100">

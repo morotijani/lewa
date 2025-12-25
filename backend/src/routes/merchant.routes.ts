@@ -3,7 +3,18 @@ import { MerchantService } from '../services/merchant.service';
 
 const router = express.Router();
 
+// Public: Get all active merchants (for customer app/discovery)
+router.get('/active', async (req, res) => {
+    try {
+        const merchants = await MerchantService.getVerifiedMerchants();
+        res.json(merchants);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Get Menu
+
 router.get('/:merchantId/menu', async (req, res) => {
     try {
         const menu = await MerchantService.getMenu(req.params.merchantId);

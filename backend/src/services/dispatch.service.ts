@@ -3,40 +3,8 @@ import { PricingService } from './pricing.service'; // For distance helper if ne
 
 export const DispatchService = {
   // Find nearest online courier with matching vehicle type
-  async findNearestCourier(pickupLat: number, pickupLng: number, vehicleType: string, radiusKm: number = 5) {
+  async findNearestCourier(pickupLat: number, pickupLng: number, vehicleType: string, radiusKm: number = 5, excludedCourierIds: string[] = []) {
     // using Haversine formula directly in SQL for ordering
-    // 6371 * acos(cos(radians(pickupLat)) * cos(radians(current_lat)) * cos(radians(current_lng) - radians(pickupLng)) + sin(radians(pickupLat)) * sin(radians(current_lat)))
-
-    // Note: We check if they are verified and online.
-    // Also ideally check if they aren't busy. My schema only has is_online.
-    // I'll assume is_online=true means available for now.
-
-    const query = `
-      SELECT id, full_name, current_lat, current_lng, vehicle_type,
-      (
-        6371 * acos(
-          cos(radians($1)) * cos(radians(current_lat)) * cos(radians(current_lng) - radians($2)) + 
-          sin(radians($1)) * sin(radians(current_lat))
-        )
-      ) AS distance
-      FROM couriers
-      JOIN users ON couriers.user_id = users.id
-      WHERE vehicle_type = $3
-      AND is_online = TRUE
-      AND users.is_verified = TRUE
-      HAVING (
-        6371 * acos(
-          cos(radians($1)) * cos(radians(current_lat)) * cos(radians(current_lng) - radians($2)) + 
-          sin(radians($1)) * sin(radians(current_lat))
-        )
-      ) < $4
-      ORDER BY distance ASC
-      LIMIT 1;
-    `;
-
-    // Note: HAVING clause needs specific GROUP BY or be standard SQL. 
-    // Postgres supports column aliases in HAVING/ORDER BY but simpler to use subquery or computed col in WHERE if not aggregated.
-    // Let's use a simpler WHERE with calculation or CTE.
 
     const cleanQuery = `
       WITH nearby_couriers AS (
@@ -54,6 +22,7 @@ export const DispatchService = {
         WHERE c.vehicle_type = $3
         AND c.is_online = TRUE
         -- AND u.is_verified = TRUE
+        AND (cardinality($5::uuid[]) = 0 OR c.id != ALL($5::uuid[]))
       )
       SELECT * FROM nearby_couriers
       WHERE distance < $4
@@ -61,13 +30,13 @@ export const DispatchService = {
       LIMIT 1;
     `;
 
-    // console.log(`Searching for courier: Lat=${pickupLat}, Lng=${pickupLng}, Type=${vehicleType}, Radius=${radiusKm}`);
-    const result = await pool.query(cleanQuery, [pickupLat, pickupLng, vehicleType, radiusKm]);
+    // console.log(`Searching for courier: Lat=${pickupLat}, Lng=${pickupLng}, Type=${vehicleType}, Radius=${radiusKm}, Excluded=${excludedCourierIds}`);
+    const result = await pool.query(cleanQuery, [pickupLat, pickupLng, vehicleType, radiusKm, excludedCourierIds]);
     // console.log('Courier search result:', result.rows[0]);
     return result.rows[0];
   },
 
-  async assignOrder(orderId: string) {
+  async assignOrder(orderId: string, excludedCourierIds: string[] = []) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -97,7 +66,7 @@ export const DispatchService = {
       }
       // Wait, CreateOrder Service save "pricingDetails". I will assume I put vehicleType there.
 
-      const courier = await this.findNearestCourier(order.pickup_lat, order.pickup_lng, vehicleType);
+      const courier = await this.findNearestCourier(order.pickup_lat, order.pickup_lng, vehicleType, 5, excludedCourierIds);
 
       if (!courier) {
         throw new Error('No couriers available nearby');
